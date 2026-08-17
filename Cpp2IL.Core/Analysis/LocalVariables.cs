@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Utils;
 
 namespace Cpp2IL.Core.Analysis;
 
@@ -143,6 +144,16 @@ public static class LocalVariables
         }
 
         method.ParameterLocals = paramLocals;
+
+        // the hidden return buffer takes the first argument register. we type it as the return
+        // type so stores into it resolve to fields
+        if (method.AppContext.Binary.PointerSizeBytes == 8
+            && method.AppContext.InstructionSet.CallingConventionResolver?.HiddenReturnBufferRegister(method) is { } bufferRegister
+            && method.Locals.FirstOrDefault(l => l.Register.Number == bufferRegister.Number && l.Register.Version == -1) is { } bufferLocal)
+        {
+            bufferLocal.Name = "returnBuffer";
+            bufferLocal.Type = method.ReturnType;
+        }
     }
 
     public static void RemoveUnused(MethodAnalysisContext method)
@@ -224,6 +235,7 @@ public static class LocalVariables
         SeedNewobjResults(method);
         SeedMethodInfoTypes(method);
         SeedComparisonResults(method);
+        SeedFloatLiterals(method);
 
         // Everywhere there's a CallVoid after a Newobj, we can resolve the constructor call.
         MetadataResolver.ResolveConstructorCalls(method);
@@ -249,6 +261,7 @@ public static class LocalVariables
             changed |= MetadataResolver.ResolveFieldOffsets(method);
             changed |= RgctxResolver.Run(method);
             changed |= PropagateStaticFieldStorage(method);
+            changed |= TypeAddressedLocals(method);
             changed |= PropagateTypesOnce(method);
         }
     }
@@ -265,7 +278,7 @@ public static class LocalVariables
                 continue;
 
             if (instruction.Operands[0] is LocalVariable destination
-                && instruction.Operands[1] is TypeAnalysisContext type and not RuntimeMethodInfoAnalysisContext)
+                && instruction.Operands[1] is TypeAnalysisContext type and not (RuntimeMethodInfoAnalysisContext or RuntimeFieldInfoAnalysisContext))
                 destination.Type = new RuntimeClassTypeAnalysisContext(type, type.DeclaringAssembly);
         }
     }
@@ -291,10 +304,10 @@ public static class LocalVariables
             _ => null,
         };
 
-    // A method-metadata global load (Move local, methodof(M)) puts a MethodInfo* for M into the local.
-    // MetadataResolver already resolved the address to a RuntimeMethodInfoAnalysisContext naming the
-    // method; that same context is the local's type (a runtime handle, recoverable via its
-    // RepresentedMethod).
+    // A method/field-metadata global load (Move local, methodof(M) / fieldof(F)) puts a MethodInfo*
+    // or FieldInfo* into the local. MetadataResolver already resolved the address to a context naming
+    // the member; that same context is the local's type (a runtime handle, recoverable via its
+    // RepresentedMethod/RepresentedField).
     private static void SeedMethodInfoTypes(MethodAnalysisContext method)
     {
         foreach (var instruction in method.ControlFlowGraph!.Instructions)
@@ -302,8 +315,9 @@ public static class LocalVariables
             if (instruction.OpCode != OpCode.Move || instruction.Operands.Count < 2)
                 continue;
 
-            if (instruction.Operands[0] is LocalVariable destination && instruction.Operands[1] is RuntimeMethodInfoAnalysisContext methodInfo)
-                destination.Type = methodInfo;
+            if (instruction.Operands[0] is LocalVariable destination
+                && instruction.Operands[1] is RuntimeMethodInfoAnalysisContext or RuntimeFieldInfoAnalysisContext)
+                destination.Type = (TypeAnalysisContext)instruction.Operands[1];
         }
     }
 
@@ -323,9 +337,11 @@ public static class LocalVariables
         }
     }
     
-    //Handles typing of locals for ref/out params
-    public static void TypeAddressedLocals(MethodAnalysisContext method)
+    //Handles typing of locals for ref/out params. Returns whether anything new was typed
+    public static bool TypeAddressedLocals(MethodAnalysisContext method)
     {
+        var changed = false;
+
         foreach (var instruction in method.ControlFlowGraph!.Instructions)
         {
             if (!instruction.IsCall || instruction.Operands[0] is not MethodAnalysisContext calledMethod)
@@ -337,7 +353,7 @@ public static class LocalVariables
             if (!calledMethod.IsStatic && firstArg < instruction.Operands.Count
                 && instruction.Operands[firstArg] is AddressOf { Target: LocalVariable receiver }
                 && calledMethod.DeclaringType is { IsValueType: true } declaringType)
-                SetTypeIfUnknown(receiver, declaringType);
+                changed |= SetTypeIfUnknown(receiver, declaringType);
 
             var paramOffset = firstArg + (calledMethod.IsStatic ? 0 : 1);
 
@@ -349,9 +365,11 @@ public static class LocalVariables
 
                 if (instruction.Operands[i] is AddressOf { Target: LocalVariable referenced }
                     && calledMethod.Parameters[parameterIndex].ParameterType is ByRefTypeAnalysisContext { ElementType: { } referencedType })
-                    SetTypeIfUnknown(referenced, referencedType);
+                    changed |= SetTypeIfUnknown(referenced, referencedType);
             }
         }
+
+        return changed;
     }
 
     // Fills in a local's type only when it is currently unknown, keeping propagation monotonic (a
@@ -401,10 +419,20 @@ public static class LocalVariables
             switch (instruction.OpCode)
             {
                 case OpCode.Move:
-                    changed |= PropagateMove(instruction);
+                    changed |= PropagateMove(instruction, method.AppContext.Binary.PointerSizeBytes);
                     break;
                 case OpCode.Phi:
                     changed |= PropagatePhi(instruction);
+                    break;
+                case OpCode.Add or OpCode.Subtract or OpCode.Multiply:
+                    changed |= PropagateArithmetic(instruction, method);
+                    break;
+                case OpCode.Divide or OpCode.Modulo:
+                    changed |= PropagateArithmetic(instruction, method) || PropagateIntegerResult(instruction, method);
+                    break;
+                case OpCode.And or OpCode.Or or OpCode.Xor or OpCode.Not or OpCode.Negate
+                    or OpCode.ShiftLeft or OpCode.ShiftRight:
+                    changed |= PropagateIntegerResult(instruction, method);
                     break;
             }
         }
@@ -412,7 +440,77 @@ public static class LocalVariables
         return changed;
     }
 
-    private static bool PropagateMove(Instruction move)
+    // A local assigned a float/double literal (a lifted rodata constant load) is that float type
+    private static void SeedFloatLiterals(MethodAnalysisContext method)
+    {
+        foreach (var instruction in method.ControlFlowGraph!.Instructions)
+        {
+            if (instruction.OpCode != OpCode.Move || instruction.Operands[0] is not LocalVariable destination)
+                continue;
+
+            destination.Type = instruction.Operands[1] switch
+            {
+                FloatLiteral => method.AppContext.SystemTypes.SystemSingleType,
+                DoubleLiteral => method.AppContext.SystemTypes.SystemDoubleType,
+                _ => destination.Type,
+            };
+        }
+    }
+
+    // Arithmetic on a float operand is float arithmetic, so the result is that float type.
+    private static bool PropagateArithmetic(Instruction instruction, MethodAnalysisContext method)
+    {
+        if (instruction.Operands is not [LocalVariable { Type: null } destination, var left, var right])
+            return false;
+
+        if ((FloatOperandType(left, method) ?? FloatOperandType(right, method)) is not { } floatType)
+            return false;
+
+        return SetTypeIfUnknown(destination, floatType);
+    }
+
+    // An integer operand makes the result an integer. Excludes bool operands so flag logic stays boolean.
+    private static bool PropagateIntegerResult(Instruction instruction, MethodAnalysisContext method)
+    {
+        if (instruction.Operands[0] is not LocalVariable { Type: null } destination)
+            return false;
+
+        for (var i = 1; i < instruction.Operands.Count; i++)
+            if (IntegerResultType(instruction.Operands[i], method) is { } integerType)
+                return SetTypeIfUnknown(destination, integerType);
+
+        return false;
+    }
+
+    private static TypeAnalysisContext? IntegerResultType(IOperand operand, MethodAnalysisContext method)
+    {
+        var type = operand switch
+        {
+            LocalVariable { Type: { } localType } => localType,
+            FieldReference field => field.Field.FieldType,
+            _ => null,
+        };
+
+        return type?.FullName switch
+        {
+            "System.Byte" or "System.SByte" or "System.Int16" or "System.UInt16"
+                or "System.Int32" or "System.UInt32" or "System.Char" => method.AppContext.SystemTypes.SystemInt32Type,
+            "System.Int64" or "System.UInt64" => method.AppContext.SystemTypes.SystemInt64Type,
+            _ => null,
+        };
+    }
+
+    private static TypeAnalysisContext? FloatOperandType(IOperand operand, MethodAnalysisContext method) =>
+        operand switch
+        {
+            FloatLiteral => method.AppContext.SystemTypes.SystemSingleType,
+            DoubleLiteral => method.AppContext.SystemTypes.SystemDoubleType,
+            LocalVariable { Type: { FullName: "System.Single" } single } => single,
+            LocalVariable { Type: { FullName: "System.Double" } @double } => @double,
+            _ => null,
+        };
+
+    private static bool PropagateMove(Instruction move, int pointerSize)
     {
         var destination = move.Operands[0];
         var source = move.Operands[1];
@@ -430,10 +528,22 @@ public static class LocalVariables
         if (destination is FieldReference storeField && source is LocalVariable storeSource)
             return SetTypeIfUnknown(storeSource, storeField.Field.FieldType);
 
+        // An element of T[] is a T, whether we loaded it (reference arrays) or only computed its address
+        if (destination is LocalVariable { Type: null } elementDest
+            && source is MemoryOperand { Base: LocalVariable { Type: SzArrayTypeAnalysisContext { ElementType: { } elementType } } } elementAccess
+            && (elementAccess.Index != null || elementAccess.Addend >= 4L * pointerSize))
+            return SetTypeIfUnknown(elementDest, elementType);
+
+        // Move local, [byref]: dereferencing a managed pointer to a reference type yields that referent
+        // (a struct byref accesses fields directly with no deref, so this only fires for class referents).
+        if (destination is LocalVariable { Type: null } derefDest
+            && source is MemoryOperand { Index: null, Scale: 0, Addend: 0, Base: LocalVariable { Type: ByRefTypeAnalysisContext { ElementType: { IsValueType: false } referent } } })
+            return SetTypeIfUnknown(derefDest, referent);
+
         // Move local, [obj]: offset 0 of a reference-typed value is its klass pointer.
         if (destination is LocalVariable { Type: null } klassDest
             && source is MemoryOperand { Index: null, Scale: 0, Addend: 0, Base: LocalVariable { Type: { } baseType } }
-            && baseType is not (RuntimeClassTypeAnalysisContext or StaticFieldStorageTypeAnalysisContext or RuntimeMethodInfoAnalysisContext)
+            && baseType is not (RuntimeClassTypeAnalysisContext or StaticFieldStorageTypeAnalysisContext or RuntimeMethodInfoAnalysisContext or RuntimeFieldInfoAnalysisContext or ByRefTypeAnalysisContext)
             && !baseType.IsValueType)
             return SetTypeIfUnknown(klassDest, new RuntimeClassTypeAnalysisContext(baseType, baseType.DeclaringAssembly));
 
@@ -508,8 +618,10 @@ public static class LocalVariables
             // Return value: a constructor yields its declaring type, otherwise the declared return type.
             if (instruction.Destination is LocalVariable returnValue)
             {
-                changed |= SetTypeIfUnknown(returnValue,
-                    calledMethod.Name is ".ctor" or ".cctor" ? calledMethod.DeclaringType : calledMethod.ReturnType);
+                var producedType = calledMethod.Name is ".ctor" or ".cctor" ? calledMethod.DeclaringType : calledMethod.ReturnType;
+
+                if (producedType != method.AppContext.SystemTypes.SystemVoidType)
+                    changed |= SetTypeIfUnknown(returnValue, producedType);
             }
 
 
@@ -575,8 +687,13 @@ public static class LocalVariables
         {
             var thisLocal = method.ParameterLocals.FirstOrDefault(p => p.IsThis);
             if (thisLocal != null)
-                thisLocal.Type = method.DeclaringType;
+                thisLocal.Type = method.DeclaringType is { GenericParameters.Count: > 0 } generic
+                    ? new GenericInstanceTypeAnalysisContext(generic, generic.GenericParameters)
+                    : method.DeclaringType;
         }
+
+        if (method.ParameterLocals.FirstOrDefault(p => p.IsMethodInfo) is { } methodInfoLocal && method.DeclaringType is { } owner)
+            methodInfoLocal.Type = new RuntimeMethodInfoAnalysisContext(method, owner.DeclaringAssembly);
 
         if (method.Parameters.Count == 0)
             return;

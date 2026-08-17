@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cpp2IL.Core.Model.Contexts;
-using Cpp2IL.Core.Utils;
-using Iced.Intel;
 
 namespace Cpp2IL.Core.Analysis;
 
@@ -14,6 +13,7 @@ namespace Cpp2IL.Core.Analysis;
 public static class ThrowHelperRecovery
 {
     private const int MaxDepth = 5;
+    private const int MaxRaiserDepth = 3;
     private const int MaxStringLength = 64;
 
     public static TypeAnalysisContext? GetThrownException(ApplicationAnalysisContext appContext, ulong address)
@@ -28,6 +28,44 @@ public static class ThrowHelperRecovery
         return type == null ? null : appContext.ResolveContextForType(type);
     }
 
+    // Whether the provided method raises whatever exception it is handed
+    // e.g. il2cpp_codegen_raise_exception, il2cpp_codegen_rethrow_exception, vm::Exception::Raise
+    public static bool IsExceptionRaiser(ApplicationAnalysisContext appContext, ulong address)
+    {
+        if (address == 0)
+            return false;
+
+        if (appContext.ExceptionRaisersByAddress.TryGetValue(address, out var cached))
+            return cached;
+
+        var raise = appContext.GetOrCreateKeyFunctionAddresses().il2cpp_vm_exception_raise;
+
+        if (raise == 0)
+            return false;
+
+        // grab the c++ exception raise method from the end of il2cpp::vm::Exception::Raise
+        var nativeThrow = appContext.InstructionSet.InspectPotentialThrowHelper(appContext, raise).CallTargets.LastOrDefault();
+
+        // and then check if we're calling it
+        var result = nativeThrow != 0 && ReachesCall(appContext, address, nativeThrow, 0, []);
+
+        appContext.ExceptionRaisersByAddress[address] = result;
+        return result;
+    }
+
+    private static bool ReachesCall(ApplicationAnalysisContext appContext, ulong address, ulong wanted, int depth, HashSet<ulong> visited)
+    {
+        if (address == wanted)
+            return true;
+
+        if (depth >= MaxRaiserDepth || !visited.Add(address))
+            return false;
+
+        var (_, callTargets) = appContext.InstructionSet.InspectPotentialThrowHelper(appContext, address);
+
+        return callTargets.Any(target => ReachesCall(appContext, target, wanted, depth + 1, visited));
+    }
+
     private static string? ResolveName(ApplicationAnalysisContext appContext, ulong address, int depth)
     {
         if (appContext.ThrowHelperNamesByAddress.TryGetValue(address, out var cached))
@@ -39,27 +77,15 @@ public static class ThrowHelperRecovery
         // Insert before recursing so a cycle terminates
         appContext.ThrowHelperNamesByAddress[address] = null;
 
-        InstructionList body;
+        var (dataReferences, callTargets) = appContext.InstructionSet.InspectPotentialThrowHelper(appContext, address);
 
-        try
-        {
-            body = X86Utils.GetMethodBodyAtVirtAddressNew(address, true, appContext.Binary);
-        }
-        catch
-        {
-            return null;
-        }
-
-        var name = FindExceptionName(appContext, body);
+        var name = FindExceptionName(appContext, dataReferences);
 
         if (name == null)
         {
-            foreach (var instruction in body)
+            foreach (var target in callTargets)
             {
-                if (instruction.Mnemonic != Mnemonic.Call || instruction.Op0Kind != OpKind.NearBranch64)
-                    continue;
-
-                name = ResolveName(appContext, instruction.NearBranchTarget, depth + 1);
+                name = ResolveName(appContext, target, depth + 1);
 
                 if (name != null)
                     break;
@@ -70,22 +96,17 @@ public static class ThrowHelperRecovery
         return name;
     }
 
-    private static string? FindExceptionName(ApplicationAnalysisContext appContext, InstructionList body)
+    private static string? FindExceptionName(ApplicationAnalysisContext appContext, IReadOnlyList<ulong> dataReferences)
     {
-        foreach (var instruction in body)
-        {
-            if (instruction.Mnemonic != Mnemonic.Lea || !instruction.IsIPRelativeMemoryOperand)
-                continue;
-
-            if (ReadCStringAtVirtualAddress(appContext, instruction.IPRelativeMemoryAddress) is { } text && text.EndsWith("Exception", StringComparison.Ordinal))
+        foreach (var address in dataReferences)
+            if (ReadCStringAtVirtualAddress(appContext, address) is { } text && text.EndsWith("Exception", StringComparison.Ordinal))
                 return text;
-        }
 
         return null;
     }
 
     //TODO didn't we have a helper for this somewhere? Can't find it. Maybe got deleted. Maybe it's just too late
-    private static string? ReadCStringAtVirtualAddress(ApplicationAnalysisContext appContext, ulong address)
+    internal static string? ReadCStringAtVirtualAddress(ApplicationAnalysisContext appContext, ulong address, int maxLength = MaxStringLength)
     {
         long offset;
 
@@ -104,7 +125,7 @@ public static class ThrowHelperRecovery
         var content = appContext.Binary.GetRawBinaryContent();
         var end = offset;
 
-        while (end < content.Length && end - offset < MaxStringLength && content[(int)end] != 0)
+        while (end < content.Length && end - offset < maxLength && content[(int)end] != 0)
         {
             var c = content[(int)end];
 

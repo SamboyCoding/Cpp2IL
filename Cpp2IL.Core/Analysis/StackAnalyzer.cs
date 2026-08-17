@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
@@ -43,11 +44,56 @@ public class StackAnalyzer
             method.AddWarning($"Method ends with non empty stack ({outText}), the output could be wrong!");
         }
 
+        analyzer.ResolveFrameAliases(graph);
         analyzer.CorrectOffsets(graph);
         ReplaceStackWithRegisters(method);
 
         graph.RemoveNops();
         graph.RemoveEmptyBlocks();
+    }
+
+    // consider mov [reg], [stack pointer]
+    // now we need to handle [reg] as if it were a stack pointer, forever.
+    private void ResolveFrameAliases(ISILControlFlowGraph graph)
+    {
+        var aliases = new Dictionary<string, int>();
+
+        foreach (var instruction in graph.EntryBlock.Successors.SelectMany(b => b.Instructions))
+        {
+            if (instruction is { OpCode: OpCode.Move, Operands: [Register destination, Register { Name: "rsp" }] }
+                && _instructionState.TryGetValue(instruction, out var atCopy))
+                aliases[destination.Name] = atCopy.Size;
+        }
+
+        if (aliases.Count == 0)
+            return;
+
+        // Following a register that gets reassigned would need flow analysis, so stop trusting it entirely
+        foreach (var instruction in graph.Instructions)
+        {
+            if (instruction is { OpCode: OpCode.Move, Operands: [Register, Register { Name: "rsp" }] })
+                continue;
+
+            if (instruction.Destination is Register written)
+                aliases.Remove(written.Name);
+        }
+
+        foreach (var instruction in graph.Instructions)
+        {
+            if (!_instructionState.TryGetValue(instruction, out var state))
+                continue;
+
+            for (var i = 0; i < instruction.Operands.Count; i++)
+            {
+                if (instruction.Operands[i] is not MemoryOperand { Index: null, Scale: 0, Base: Register frameBase } memory)
+                    continue;
+
+                if (!aliases.TryGetValue(frameBase.Name, out var frameOffset))
+                    continue;
+
+                instruction.SetOperand(i, new StackOffset((int)(frameOffset + memory.Addend - state.Size)));
+            }
+        }
     }
 
     private void CorrectOffsets(ISILControlFlowGraph graph)

@@ -8,7 +8,7 @@ namespace Cpp2IL.Core.Utils;
 
 #pragma warning disable IDE0305, IDE0300
 
-public static class X64CallingConventionResolver
+public class X64CallingConventionResolver : BaseCallingConventionResolver
 {
     // TODO: GCC(Linux) ABI
 
@@ -18,42 +18,51 @@ public static class X64CallingConventionResolver
 
     const int ptrSize = 8;
 
-    private static bool IsXMM(ParameterAnalysisContext par)
+    private static bool IsXMM(ParameterAnalysisContext par) => IsFloatingPoint(par.ParameterType);
+
+    public override Register ReturnRegister(MethodAnalysisContext ctx)
+        => new(null, IsFloatingPoint(ctx.ReturnType) ? "xmm0" : "rax");
+
+    public override Register? HiddenReturnBufferRegister(MethodAnalysisContext ctx)
+        => ReturnsViaHiddenBuffer(ctx) ? new Register(null, ctx.AppContext.Binary is PE ? "rcx" : "rdi") : null;
+
+    public override bool ReturnsViaHiddenBuffer(MethodAnalysisContext ctx)
     {
-        var parameterType = par.ParameterType;
-        return parameterType == parameterType.AppContext.SystemTypes.SystemSingleType
-            || parameterType == parameterType.AppContext.SystemTypes.SystemDoubleType;
+        if (ctx.IsVoid)
+            return false;
+
+        var returnType = ctx.ReturnType;
+        if (!returnType.IsValueType || IsFloatingPoint(returnType))
+            return false;
+
+        var size = TypeSizes.UnboxedSize(returnType, ptrSize);
+        if (size == 0)
+            return false; // unknown size (e.g. generic): assume a register return
+
+        return ctx.AppContext.Binary is PE ? size is not (1 or 2 or 4 or 8) : size > 16;
     }
 
-    public static ISIL.IOperand[] ResolveForUnmanaged(ApplicationAnalysisContext app, ulong target)
-    {
-        // This is mostly a stub and may be extended in the future. You can traverse exports here for example.
-        // For now, we'll return all normal registers and omit the floating point registers.
+    private static readonly string[] PeIntegerRegisters = ["rcx", "rdx", "r8", "r9"];
+    private static readonly string[] PeFloatRegisters = ["xmm0", "xmm1", "xmm2", "xmm3"];
+    private static readonly string[] SysVIntegerRegisters = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+    private static readonly string[] SysVFloatRegisters = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7"];
 
-        return app.Binary is PE ? new[] {
-            ToOperand(MicrosoftNormalRegister.rcx),
-            ToOperand(MicrosoftNormalRegister.rdx),
-            ToOperand(MicrosoftNormalRegister.r8),
-            ToOperand(MicrosoftNormalRegister.r9)
-        } : new[] {
-            ToOperand(LinuxNormalRegister.rdi),
-            ToOperand(LinuxNormalRegister.rsi),
-            ToOperand(LinuxNormalRegister.rdx),
-            ToOperand(LinuxNormalRegister.rcx),
-            ToOperand(LinuxNormalRegister.r8),
-            ToOperand(LinuxNormalRegister.r9)
-        };
-    }
+    protected override (string[] Integer, string[] Float) RawRegisters(ApplicationAnalysisContext app)
+        => app.Binary is PE ? (PeIntegerRegisters, PeFloatRegisters) : (SysVIntegerRegisters, SysVFloatRegisters);
 
-    public static ISIL.IOperand[] ResolveForManaged(MethodAnalysisContext ctx)
+    protected override bool UsesShadowedArgumentSlots(ApplicationAnalysisContext app) => app.Binary is PE;
+
+    public override IOperand[] ResolveForManaged(MethodAnalysisContext ctx)
     {
         // if (ctx.AppContext.Binary.is32Bit)
         //    throw new NotSupportedException("Resolution of 64-bit calling conventions in 32-bit binaries is not supported.");
 
-        List<ISIL.IOperand> args = new();
+        List<IOperand> args = new();
 
         var addThis = !ctx.IsStatic;
-        var isReturningAnOversizedStructure = false; // TODO: Determine whether we return a structure and whether that structure is oversized.
+        // the buffer takes the first argument register but deliberately isn't in the list, as
+        // everything downstream reads that as [this?, params..., MethodInfo]
+        var isReturningAnOversizedStructure = ReturnsViaHiddenBuffer(ctx);
 
         /*
         GCC:
@@ -173,7 +182,7 @@ public static class X64CallingConventionResolver
 
             if (isReturningAnOversizedStructure)
             {
-                AddParameter(null);
+                i++; // rcx holds the return buffer pointer, not an argument operand
             }
 
             if (addThis)
@@ -240,7 +249,7 @@ public static class X64CallingConventionResolver
 
             if (isReturningAnOversizedStructure)
             {
-                args.Add(ToOperand(nreg++));
+                nreg++; // rdi holds the return buffer pointer, not an argument operand
             }
 
             if (addThis)
@@ -260,7 +269,7 @@ public static class X64CallingConventionResolver
         return args.ToArray();
     }
 
-    private static ISIL.IOperand ToOperand(MicrosoftNormalRegister Reg) => Reg switch
+    private static IOperand ToOperand(MicrosoftNormalRegister Reg) => Reg switch
     {
         MicrosoftNormalRegister.rcx => new Register(null, "rcx"),
         MicrosoftNormalRegister.rdx => new Register(null, "rdx"),
@@ -269,7 +278,7 @@ public static class X64CallingConventionResolver
         _ => throw new InvalidOperationException("Went past the register limit during resolution.")
     };
 
-    private static ISIL.IOperand ToOperand(LinuxNormalRegister Reg) => Reg switch
+    private static IOperand ToOperand(LinuxNormalRegister Reg) => Reg switch
     {
         LinuxNormalRegister.rdi => new Register(null, "rdi"),
         LinuxNormalRegister.rsi => new Register(null, "rsi"),
@@ -280,7 +289,7 @@ public static class X64CallingConventionResolver
         _ => throw new InvalidOperationException("Went past the register limit during resolution.")
     };
 
-    private static ISIL.IOperand ToOperand(LinuxFloatingRegister Reg) => Reg switch
+    private static IOperand ToOperand(LinuxFloatingRegister Reg) => Reg switch
     {
         LinuxFloatingRegister.xmm0 => new Register(null, "xmm0"),
         LinuxFloatingRegister.xmm1 => new Register(null, "xmm1"),

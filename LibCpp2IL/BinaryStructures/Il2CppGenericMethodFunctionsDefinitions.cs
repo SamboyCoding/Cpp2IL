@@ -9,8 +9,9 @@ public class Il2CppGenericMethodFunctionsDefinitions : ReadableClass
     public int invokerIndex;
 
     //Present in v27.1 and v24.5, but not v27.0. In v108+ only present in the separate "with adjustor" metadata table.
+    //-1 (both il2cpp's no-thunk marker and our default for versions without the field) means no thunk.
     [Version(Min = 27.1f, Max = 108)] [Version(Min = 24.5f, Max = 24.5f)]
-    public int adjustorThunk;
+    public int adjustorThunk = -1;
 
     public override void Read(ClassReadingBinaryReader reader)
     {

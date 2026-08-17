@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Api;
@@ -47,7 +48,34 @@ public abstract class Cpp2IlInstructionSet
     public abstract BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance();
 
     /// <summary>
-    /// Create a string containing the raw native disassembly of the given method. You should print one instruction per line, alongside its address if applicable and available. 
+    /// The calling convention model for this instruction set, used by analysis passes to reason about call
+    /// arguments and return values. Null if this instruction set does not model calling conventions.
+    /// </summary>
+    public virtual BaseCallingConventionResolver? CallingConventionResolver => null;
+
+    /// <summary>
+    /// For the function at <paramref name="address"/>, returns the absolute
+    /// addresses it references as constant data (candidate C-string pointers, e.g. an exception type name)
+    /// and the addresses it calls (so a chain of helpers can be followed).
+    /// </summary>
+    public virtual (IReadOnlyList<ulong> DataReferences, IReadOnlyList<ulong> CallTargets) InspectPotentialThrowHelper(ApplicationAnalysisContext context, ulong address)
+        => ([], []);
+
+    /// <summary>
+    /// For a simple thunk function, returns the jump target. Returns 0 if the function at <paramref name="thunkAddress"/>
+    /// is not such a thunk, or if this instruction set does not implement thunk following.
+    /// </summary>
+    public virtual ulong GetThunkTarget(ApplicationAnalysisContext context, ulong thunkAddress) => 0;
+
+    /// <summary>
+    /// For an internal call, returns the address of the runtime function it tail-calls into.
+    /// Unlike a thunk these can do a small amount of work before the jump, so implementations must scan the whole body, unlike for <see cref="GetThunkTarget"/>.
+    /// Returns 0 if there isn't exactly one such target, or if this instruction set does not implement it.
+    /// </summary>
+    public virtual ulong GetInternalCallTarget(MethodAnalysisContext method) => 0;
+
+    /// <summary>
+    /// Create a string containing the raw native disassembly of the given method. You should print one instruction per line, alongside its address if applicable and available.
     /// </summary>
     /// <param name="context">The method context to disassemble.</param>
     /// <returns>A string containing one instruction per line.</returns>

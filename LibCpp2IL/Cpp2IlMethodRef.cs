@@ -14,6 +14,8 @@ public class Cpp2IlMethodRef(Il2CppMethodSpec methodSpec)
 
     public ulong GenericVariantPtr;
 
+    public ulong AdjustorThunkPtr;
+
     public override string ToString()
     {
         var sb = new StringBuilder();

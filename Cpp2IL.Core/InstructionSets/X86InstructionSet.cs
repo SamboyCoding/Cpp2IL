@@ -16,6 +16,9 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 {
     private static readonly MasmFormatter Formatter = new();
     private static readonly StringOutput Output = new();
+    private static readonly X64CallingConventionResolver CallingConventions = new();
+
+    public override BaseCallingConventionResolver CallingConventionResolver => CallingConventions;
 
     private static ISIL.Immediate Imm(long value) => new(value);
     private static ISIL.Immediate Imm(ulong value) => new(unchecked((long)value));
@@ -95,9 +98,105 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         return instructions;
     }
 
+    private static ISIL.Register? ReturnRegisterClobberedBy(MethodAnalysisContext callee)
+        => callee.IsVoid ? CallingConventions.ReturnRegister(callee) : null;
+
     public override List<ISIL.IOperand> GetParameterOperandsFromMethod(MethodAnalysisContext context)
     {
-        return X64CallingConventionResolver.ResolveForManaged(context).ToList();
+        return CallingConventions.ResolveForManaged(context).ToList();
+    }
+
+    public override ulong GetThunkTarget(ApplicationAnalysisContext context, ulong thunkAddress)
+    {
+        var binary = context.Binary;
+
+        if (!binary.TryMapVirtualAddressToRaw(thunkAddress, out var rawAddress))
+            return 0;
+
+        var raw = binary.GetRawBinaryContent();
+        var length = (int)Math.Min(32, raw.Length - rawAddress);
+        if (length <= 0)
+            return 0;
+
+        var decoder = Decoder.Create(binary.is32Bit ? 32 : 64, new ByteArrayCodeReader(raw.Slice((int)rawAddress, length).ToArray()), thunkAddress);
+        
+        for (var i = 0; i < 4; i++)
+        {
+            var instruction = decoder.Decode();
+
+            if (instruction.FlowControl == FlowControl.UnconditionalBranch && instruction.Op0Kind is OpKind.NearBranch16 or OpKind.NearBranch32 or OpKind.NearBranch64)
+                return instruction.NearBranchTarget;
+
+            if (instruction.FlowControl != FlowControl.Next)
+                return 0;
+        }
+
+        return 0;
+    }
+
+    public override ulong GetInternalCallTarget(MethodAnalysisContext method)
+    {
+        var start = GetPointerForMethod(method);
+        var length = method.RawBytes.Length;
+
+        if (start == 0 || length == 0)
+            return 0;
+
+        var decoder = Decoder.Create(method.AppContext.Binary.is32Bit ? 32 : 64, new ByteArrayCodeReader(method.RawBytes.ToArray()), start);
+        var target = 0ul;
+
+        while (decoder.IP < start + (ulong)length)
+        {
+            var instruction = decoder.Decode();
+
+            if (instruction.FlowControl != FlowControl.UnconditionalBranch || instruction.Op0Kind is not (OpKind.NearBranch16 or OpKind.NearBranch32 or OpKind.NearBranch64))
+                continue;
+
+            var branch = instruction.NearBranchTarget;
+
+            if (branch >= start && branch < start + (ulong)length)
+                continue; // ordinary control flow within the stub
+
+            if (target != 0 && target != branch)
+                return 0;
+
+            target = branch;
+        }
+
+        return target;
+    }
+
+    public override (IReadOnlyList<ulong> DataReferences, IReadOnlyList<ulong> CallTargets) InspectPotentialThrowHelper(ApplicationAnalysisContext context, ulong address)
+    {
+        Iced.Intel.InstructionList body;
+        try
+        {
+            body = X86Utils.GetMethodBodyAtVirtAddressNew(address, true, context.Binary);
+        }
+        catch
+        {
+            return ([], []);
+        }
+
+        var dataReferences = new List<ulong>();
+        var callTargets = new List<ulong>();
+
+        foreach (var insn in body)
+        {
+            if (insn.Mnemonic == Mnemonic.Lea && insn.IsIPRelativeMemoryOperand)
+                dataReferences.Add(insn.IPRelativeMemoryAddress);
+            else if (insn.Mnemonic == Mnemonic.Call && insn.Op0Kind == OpKind.NearBranch64)
+                callTargets.Add(insn.NearBranchTarget);
+        }
+
+        return (dataReferences, callTargets);
+    }
+
+    internal List<ISIL.Instruction> GetIsilFromInstruction(Instruction instruction)
+    {
+        var instructions = new List<ISIL.Instruction>();
+        ConvertInstructionStatement(instruction, instructions, [], null!);
+        return instructions;
     }
 
     private void ConvertInstructionStatement(Instruction instruction, List<ISIL.Instruction> instructions, List<ulong> addresses, MethodAnalysisContext context)
@@ -117,14 +216,14 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         void AddIndirectCall(Instruction source)
         {
             var call = Add(source.IP, ISIL.OpCode.IndirectCall, ConvertOperand(source, 0), new ISIL.Register(null, "rax") /* return value */);
-            call.AddOperands(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, source.IP));
+            call.AddOperands(CallingConventions.ResolveForUnmanaged(context.AppContext, source.IP));
         }
         
         // Preserve all the argument registers as we don't know which ones are used
         void AddIndirectJmp(Instruction source)
         {
             var call = Add(source.IP, ISIL.OpCode.IndirectJump, ConvertOperand(source, 0), new ISIL.Register(null, "rax") /* return value */);
-            call.AddOperands(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, source.IP));
+            call.AddOperands(CallingConventions.ResolveForUnmanaged(context.AppContext, source.IP));
         }
 
         switch (instruction.Mnemonic)
@@ -135,16 +234,20 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Movsxd: // same
             case Mnemonic.Movaps: // Movaps is basically just a mov but with the potential future detail that the size is dependent on reg size
             case Mnemonic.Movups: // Movaps but unaligned
-            case Mnemonic.Movss: // Same as movaps but for floats
             case Mnemonic.Movd: // Mov but specifically dword
             case Mnemonic.Movq: // Mov but specifically qword
-            case Mnemonic.Movsd: // Mov but specifically double
             case Mnemonic.Movdqa: // Movaps but multiple integers at once in theory
             case Mnemonic.Cvtdq2ps: // Technically a convert double to single, but for analysis purposes we can just treat it as a move
             case Mnemonic.Cvtps2pd: // same, but float to double
+            case Mnemonic.Cvtdq2pd: // int to double
+            case Mnemonic.Cvtpd2ps: // double to float
             case Mnemonic.Cvttsd2si: // same, but double to integer
             case Mnemonic.Movdqu: // DEST[127:0] := SRC[127:0]
                 Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                break;
+            case Mnemonic.Movss: // scalar single - as a move, but a load from a constant address is a float literal
+            case Mnemonic.Movsd: // scalar double
+                Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertScalarFloatOperand(instruction, 1, instruction.Mnemonic == Mnemonic.Movss, context));
                 break;
             case Mnemonic.Cbw: // AX := sign-extend AL
                 Add(instruction.IP, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.AX)),
@@ -158,57 +261,95 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 Add(instruction.IP, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.RAX)),
                     new ISIL.Register(null, X86Utils.GetRegisterName(Register.EAX)));
                 break;
-            // it's very unsafe if there's been a jump to the next instruction here before.
-            case Mnemonic.Cwd: // Convert Word to Doubleword
-                {
-                    // The CWD instruction copies the sign (bit 15) of the value in the AX register into every bit position in the DX register
-                    var temp = new ISIL.Register(null, "TEMP");
-                    Add(instruction.IP, ISIL.OpCode.Move, temp, new ISIL.Register(null, X86Utils.GetRegisterName(Register.AX))); // TEMP = AX
-                    Add(instruction.IP, ISIL.OpCode.ShiftRight, temp, temp, Imm(15)); // TEMP >>= 15
-                    Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, temp, Imm(1)); // temp == 1
-                    Add(instruction.IP, ISIL.OpCode.Not, temp, temp); // temp = !temp
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), temp);
-                    // temp == 1 ? DX := ushort.Max (1111111111) or DX := 0
-                    Add(instruction.IP, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.DX)), new ISIL.Immediate(ushort.MaxValue));
-                    Add(instruction.IP, ISIL.OpCode.Jump, Imm(instruction.IP + 2));
-                    Add(instruction.IP + 1, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.DX)), Imm(0));
-                    Add(instruction.IP + 2, ISIL.OpCode.Nop);
-                    break;
-                }
-            case Mnemonic.Cdq: // Convert Doubleword to Quadword
-                {
-                    // The CDQ instruction copies the sign (bit 31) of the value in the EAX register into every bit position in the EDX register.
-                    var temp = new ISIL.Register(null, "TEMP");
-                    Add(instruction.IP, ISIL.OpCode.Move, temp, new ISIL.Register(null, X86Utils.GetRegisterName(Register.EAX))); // TEMP = EAX
-                    Add(instruction.IP, ISIL.OpCode.ShiftRight, temp, temp, Imm(31)); // TEMP >>= 31
-                    Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, temp, Imm(1)); // temp == 1
-                    Add(instruction.IP, ISIL.OpCode.Not, temp, temp); // temp = !temp
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), temp);
-                    // temp == 1 ? EDX := uint.Max (1111111111) or EDX := 0
-                    Add(instruction.IP, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.EDX)), new ISIL.Immediate(uint.MaxValue));
-                    Add(instruction.IP, ISIL.OpCode.Jump, Imm(instruction.IP + 2));
-                    Add(instruction.IP + 1, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.EDX)), Imm(0));
-                    Add(instruction.IP + 2, ISIL.OpCode.Nop);
-                    break;
-                }
-            case Mnemonic.Cqo: // same...
-                {
-                    // The CQO instruction copies the sign (bit 63) of the value in the EAX register into every bit position in the RDX register.
-                    var temp = new ISIL.Register(null, "TEMP");
-                    Add(instruction.IP, ISIL.OpCode.Move, temp, new ISIL.Register(null, X86Utils.GetRegisterName(Register.RAX))); // TEMP = RAX
-                    Add(instruction.IP, ISIL.OpCode.ShiftRight, temp, temp, Imm(63)); // TEMP >>= 63
-                    Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, temp, Imm(1)); // temp == 1
-                    Add(instruction.IP, ISIL.OpCode.Not, temp, temp); // temp = !temp
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), temp);
-                    // temp == 1 ? RDX := ulong.Max (1111111111) or RDX := 0
-                    Add(instruction.IP, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.RDX)), Imm(ulong.MaxValue));
-                    Add(instruction.IP, ISIL.OpCode.Jump, Imm(instruction.IP + 2));
-                    Add(instruction.IP + 1, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.RDX)), Imm(0));
-                    Add(instruction.IP + 2, ISIL.OpCode.Nop);
-                    break;
-                }
+            case Mnemonic.Cwd: // DX:AX := sign-extend AX
+                Add(instruction.IP, ISIL.OpCode.ShiftRight, new ISIL.Register(null, X86Utils.GetRegisterName(Register.DX)),
+                    new ISIL.Register(null, X86Utils.GetRegisterName(Register.AX)), Imm(15));
+                break;
+            case Mnemonic.Cdq: // EDX:EAX := sign-extend EAX
+                Add(instruction.IP, ISIL.OpCode.ShiftRight, new ISIL.Register(null, X86Utils.GetRegisterName(Register.EDX)),
+                    new ISIL.Register(null, X86Utils.GetRegisterName(Register.EAX)), Imm(31));
+                break;
+            case Mnemonic.Cqo: // RDX:RAX := sign-extend RAX
+                Add(instruction.IP, ISIL.OpCode.ShiftRight, new ISIL.Register(null, X86Utils.GetRegisterName(Register.RDX)),
+                    new ISIL.Register(null, X86Utils.GetRegisterName(Register.RAX)), Imm(63));
+                break;
             case Mnemonic.Lea:
-                Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1, true));
+                var destination = ConvertOperand(instruction, 0);
+
+                // RIP-relative LEA is effectively loading the absolute address.
+                if (instruction.IsIPRelativeMemoryOperand)
+                {
+                    Add(instruction.IP, ISIL.OpCode.Move, destination, Imm((long)instruction.IPRelativeMemoryAddress));
+                    return;
+                }
+
+                // Stack-address LEA keeps stack semantics represented as address-of stack slot.
+                if (instruction is { MemoryBase: Register.RSP, MemoryIndex: Register.None })
+                {
+                    Add(instruction.IP, ISIL.OpCode.Move, destination, ConvertOperand(instruction, 1, true));
+                    return;
+                }
+
+                // Absolute-address LEA also computes a value rather than loading from memory.
+                if (instruction.MemoryBase == Register.None && instruction.MemoryIndex == Register.None)
+                {
+                    Add(instruction.IP, ISIL.OpCode.Move, destination, Imm((long)instruction.MemoryDisplacement64));
+                    return;
+                }
+
+                if (instruction.MemoryIndex != Register.None)
+                {
+                    ISIL.IOperand? baseRegister = instruction.MemoryBase != Register.None
+                        ? new ISIL.Register(null, X86Utils.GetRegisterName(instruction.MemoryBase))
+                        : null;
+                    var indexRegister = new ISIL.Register(null, X86Utils.GetRegisterName(instruction.MemoryIndex));
+                    var source = (ISIL.IOperand)indexRegister;
+
+                    if (instruction.MemoryIndexScale > 1)
+                    {
+                        if (baseRegister != null)
+                        {
+                            var temp = new ISIL.Register(null, "TEMP");
+                            Add(instruction.IP, ISIL.OpCode.Multiply, temp, indexRegister, Imm(instruction.MemoryIndexScale));
+                            source = temp;
+                        }
+                        else
+                        {
+                            Add(instruction.IP, ISIL.OpCode.Multiply, destination, indexRegister, Imm(instruction.MemoryIndexScale));
+                            source = destination;
+                        }
+                    }
+
+                    if (baseRegister != null)
+                        Add(instruction.IP, ISIL.OpCode.Add, destination, baseRegister, source);
+                    else if (!ReferenceEquals(source, destination))
+                        Add(instruction.IP, ISIL.OpCode.Move, destination, source);
+
+                    var displacement = unchecked((long)instruction.MemoryDisplacement64);
+                    if (displacement > 0)
+                        Add(instruction.IP, ISIL.OpCode.Add, destination, destination, Imm(displacement));
+                    else if (displacement < 0)
+                        Add(instruction.IP, ISIL.OpCode.Subtract, destination, destination, Imm(-displacement));
+
+                    return;
+                }
+
+                if (instruction.MemoryBase != Register.None && instruction.MemoryBase != Register.RSP)
+                {
+                    var baseRegister = new ISIL.Register(null, X86Utils.GetRegisterName(instruction.MemoryBase));
+                    var displacement = unchecked((long)instruction.MemoryDisplacement64);
+
+                    if (displacement == 0)
+                        Add(instruction.IP, ISIL.OpCode.Move, destination, baseRegister);
+                    else if (displacement > 0)
+                        Add(instruction.IP, ISIL.OpCode.Add, destination, baseRegister, Imm(displacement));
+                    else
+                        Add(instruction.IP, ISIL.OpCode.Subtract, destination, baseRegister, Imm(-displacement));
+
+                    return;
+                }
+
+                Add(instruction.IP, ISIL.OpCode.Move, destination, ConvertOperand(instruction, 1, true));
                 break;
             case Mnemonic.Xor:
             case Mnemonic.Xorps: //xorps is just floating point xor
@@ -233,6 +374,29 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Orps: //Floating point or
                 Add(instruction.IP, ISIL.OpCode.Or, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
+            case Mnemonic.Bts: // CF = old bit, then set it
+                {
+                    var dest = ConvertOperand(instruction, 0);
+                    var bit = ConvertOperand(instruction, 1);
+                    var temp = new ISIL.Register(null, "TEMP");
+                    Add(instruction.IP, ISIL.OpCode.ShiftRight, temp, dest, bit);
+                    Add(instruction.IP, ISIL.OpCode.And, new ISIL.Register(null, "CF"), temp, Imm(1));
+                    Add(instruction.IP, ISIL.OpCode.ShiftLeft, temp, Imm(1), bit);
+                    Add(instruction.IP, ISIL.OpCode.Or, dest, dest, temp);
+                    break;
+                }
+            case Mnemonic.Btr: // CF = old bit, then clear it
+                {
+                    var dest = ConvertOperand(instruction, 0);
+                    var bit = ConvertOperand(instruction, 1);
+                    var temp = new ISIL.Register(null, "TEMP");
+                    Add(instruction.IP, ISIL.OpCode.ShiftRight, temp, dest, bit);
+                    Add(instruction.IP, ISIL.OpCode.And, new ISIL.Register(null, "CF"), temp, Imm(1));
+                    Add(instruction.IP, ISIL.OpCode.ShiftLeft, temp, Imm(1), bit);
+                    Add(instruction.IP, ISIL.OpCode.Not, temp, temp); // temp = ~(1 << bit)
+                    Add(instruction.IP, ISIL.OpCode.And, dest, dest, temp);
+                    break;
+                }
             case Mnemonic.Not:
                 Add(instruction.IP, ISIL.OpCode.Not, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0));
                 break;
@@ -269,22 +433,45 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 else Add(instruction.IP, ISIL.OpCode.Multiply, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
 
                 break;
+            case Mnemonic.Idiv:
+            case Mnemonic.Div:
+                {
+                    var divisorSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
+
+                    // the 8-bit form puts the remainder in AH, which we can't deal with
+                    if (divisorSize is not (2 or 4 or 8))
+                        goto default;
+
+                    // The real dividend is the D:A register pair, but every compiler sets D up with cdq/cqo or
+                    // an xor immediately beforehand, so in reality it's just rax
+                    var quotient = new ISIL.Register(null, X86Utils.GetRegisterName(Register.RAX));
+                    var remainder = new ISIL.Register(null, X86Utils.GetRegisterName(Register.RDX));
+
+                    var dividend = new ISIL.Register(null, "TEMP_DIVIDEND");
+                    var divisor = new ISIL.Register(null, "TEMP_DIVISOR");
+
+                    Add(instruction.IP, ISIL.OpCode.Move, dividend, quotient);
+                    Add(instruction.IP, ISIL.OpCode.Move, divisor, ConvertOperand(instruction, 0));
+                    Add(instruction.IP, ISIL.OpCode.Divide, quotient, dividend, divisor);
+                    Add(instruction.IP, ISIL.OpCode.Modulo, remainder, dividend, divisor);
+                    break;
+                }
             case Mnemonic.Mulss:
             case Mnemonic.Vmulss:
                 if (instruction.OpCount == 3)
-                    Add(instruction.IP, ISIL.OpCode.Multiply, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
+                    Add(instruction.IP, ISIL.OpCode.Multiply, ConvertOperand(instruction, 0), ConvertScalarFloatOperand(instruction, 1, true, context), ConvertScalarFloatOperand(instruction, 2, true, context));
                 else if (instruction.OpCount == 2)
-                    Add(instruction.IP, ISIL.OpCode.Multiply, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                    Add(instruction.IP, ISIL.OpCode.Multiply, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertScalarFloatOperand(instruction, 1, true, context));
                 else
                     goto default;
 
                 break;
 
             case Mnemonic.Divss: // Divide Scalar Single Precision Floating-Point Values. DEST[31:0] = DEST[31:0] / SRC[31:0]
-                Add(instruction.IP, ISIL.OpCode.Divide, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                Add(instruction.IP, ISIL.OpCode.Divide, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertScalarFloatOperand(instruction, 1, true, context));
                 break;
             case Mnemonic.Vdivss: // VEX Divide Scalar Single Precision Floating-Point Values. DEST[31:0] = SRC1[31:0] / SRC2[31:0]
-                Add(instruction.IP, ISIL.OpCode.Divide, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
+                Add(instruction.IP, ISIL.OpCode.Divide, ConvertOperand(instruction, 0), ConvertScalarFloatOperand(instruction, 1, true, context), ConvertScalarFloatOperand(instruction, 2, true, context));
                 break;
 
             case Mnemonic.Ret:
@@ -344,15 +531,15 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     {
                         //dest, src1, src2
                         dest = ConvertOperand(instruction, 0);
-                        src1 = ConvertOperand(instruction, 1);
-                        src2 = ConvertOperand(instruction, 2);
+                        src1 = ConvertScalarFloatOperand(instruction, 1, true, context);
+                        src2 = ConvertScalarFloatOperand(instruction, 2, true, context);
                     }
                     else if (instruction.OpCount == 2)
                     {
                         //DestAndSrc1, Src2
                         dest = ConvertOperand(instruction, 0);
                         src1 = dest;
-                        src2 = ConvertOperand(instruction, 1);
+                        src2 = ConvertScalarFloatOperand(instruction, 1, true, context);
                     }
                     else
                         goto default;
@@ -455,9 +642,10 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         if (possibleMethods[0].IsVoid)
                             call = Add(instruction.IP, ISIL.OpCode.CallVoid, Imm(target));
                         else
-                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), new ISIL.Register(null, "rax") /* return value */);
+                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), CallingConventions.ReturnRegister(possibleMethods[0]));
 
-                        call.AddOperands(X64CallingConventionResolver.ResolveForManaged(possibleMethods[0]));
+                        call.AddOperands(CallingConventions.ResolveForManaged(possibleMethods[0]));
+                        call.ImplicitDefinition = ReturnRegisterClobberedBy(possibleMethods[0]);
                     }
                     else
                     {
@@ -476,7 +664,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                             }
                         }
 
-                        // On post-analysis, you can discard methods according to the registers used, see X64CallingConventionResolver.
+                        // On post-analysis, you can discard methods according to the registers used, see CallingConventions.
                         // This is less effective on GCC because MSVC doesn't overlap registers.
 
                         ISIL.Instruction call;
@@ -484,9 +672,10 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         if (ctx.IsVoid)
                             call = Add(instruction.IP, ISIL.OpCode.CallVoid, Imm(target));
                         else
-                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), new ISIL.Register(null, "rax") /* return value */);
+                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), CallingConventions.ReturnRegister(ctx));
 
-                        call.AddOperands(X64CallingConventionResolver.ResolveForManaged(ctx));
+                        call.AddOperands(CallingConventions.ResolveForManaged(ctx));
+                        call.ImplicitDefinition = ReturnRegisterClobberedBy(ctx);
                     }
                 }
                 else
@@ -496,7 +685,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     // These can be converted to dedicated ISIL instructions for specific API functions at a later stage. (by a post-processing step)
 
                     var call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), new ISIL.Register(null, "rax") /* return value */);
-                    call.AddOperands(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, target));
+                    call.AddOperands(CallingConventions.ResolveForUnmanaged(context.AppContext, target));
                 }
 
                 if (callNoReturn)
@@ -523,9 +712,11 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 AddTestInstruction(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Cmp:
+                AddCompareInstruction(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                break;
             case Mnemonic.Comiss: //comiss is just a floating point compare dest[31:0] == src[31:0]
             case Mnemonic.Ucomiss: // same, but unsigned
-                AddCompareInstruction(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                AddCompareInstruction(instruction.IP, ConvertOperand(instruction, 0), ConvertScalarFloatOperand(instruction, 1, true, context));
                 break;
 
             case Mnemonic.Cmove: // move if condition
@@ -590,6 +781,74 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1)); // set if cond
                 Add(instruction.IP + 1, ISIL.OpCode.Nop);
                 break;
+
+            // Convert a flag condition into the (byte) destination as 0/1, mirroring the Cmov conditions.
+            case Mnemonic.Sete: // ZF
+            case Mnemonic.Setne: // !ZF
+            case Mnemonic.Seta: // above: !CF && !ZF
+            case Mnemonic.Setae: // above or equal: !CF
+            case Mnemonic.Setb: // below: CF
+            case Mnemonic.Setbe: // below or equal: CF || ZF
+            case Mnemonic.Setg: // greater: !ZF && SF == OF
+            case Mnemonic.Setge: // greater or equal: SF == OF
+            case Mnemonic.Setl: // less: SF != OF
+            case Mnemonic.Setle: // less or equal: ZF || SF != OF
+            case Mnemonic.Sets: // SF
+            case Mnemonic.Setns: // !SF
+                {
+                    var dest = ConvertOperand(instruction, 0);
+                    var cf = new ISIL.Register(null, "CF");
+                    var zf = new ISIL.Register(null, "ZF");
+                    var sf = new ISIL.Register(null, "SF");
+                    var of = new ISIL.Register(null, "OF");
+                    var temp = new ISIL.Register(null, "TEMP");
+
+                    switch (instruction.Mnemonic)
+                    {
+                        case Mnemonic.Sete:
+                            Add(instruction.IP, ISIL.OpCode.Move, dest, zf);
+                            break;
+                        case Mnemonic.Setne:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, dest, zf, Imm(0));
+                            break;
+                        case Mnemonic.Setb:
+                            Add(instruction.IP, ISIL.OpCode.Move, dest, cf);
+                            break;
+                        case Mnemonic.Setae:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, dest, cf, Imm(0));
+                            break;
+                        case Mnemonic.Seta:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, cf, Imm(0)); // TEMP = !CF
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, dest, zf, Imm(0)); // dest = !ZF
+                            Add(instruction.IP, ISIL.OpCode.And, dest, dest, temp); // dest = !CF && !ZF
+                            break;
+                        case Mnemonic.Setbe:
+                            Add(instruction.IP, ISIL.OpCode.Or, dest, cf, zf); // dest = CF || ZF
+                            break;
+                        case Mnemonic.Sets:
+                            Add(instruction.IP, ISIL.OpCode.Move, dest, sf);
+                            break;
+                        case Mnemonic.Setns:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, dest, sf, Imm(0));
+                            break;
+                        case Mnemonic.Setge:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, dest, sf, of); // dest = SF == OF
+                            break;
+                        case Mnemonic.Setl:
+                            Add(instruction.IP, ISIL.OpCode.CheckNotEqual, dest, sf, of); // dest = SF != OF
+                            break;
+                        case Mnemonic.Setg:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, sf, of); // TEMP = SF == OF
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, dest, zf, Imm(0)); // dest = !ZF
+                            Add(instruction.IP, ISIL.OpCode.And, dest, dest, temp); // dest = !ZF && SF == OF
+                            break;
+                        case Mnemonic.Setle:
+                            Add(instruction.IP, ISIL.OpCode.CheckNotEqual, temp, sf, of); // TEMP = SF != OF
+                            Add(instruction.IP, ISIL.OpCode.Or, dest, temp, zf); // dest = ZF || SF != OF
+                            break;
+                    }
+                    break;
+                }
 
             case Mnemonic.Maxss: // dest < src ? src : dest
             case Mnemonic.Minss: // dest > src ? src : dest
@@ -825,6 +1084,36 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         }
     }
 
+    private ISIL.IOperand ConvertScalarFloatOperand(Instruction instruction, int operand, bool single, MethodAnalysisContext? context)
+    {
+        if (context == null || instruction.GetOpKind(operand) != OpKind.Memory)
+            return ConvertOperand(instruction, operand);
+
+        if (!instruction.IsIPRelativeMemoryOperand && instruction is not { MemoryBase: Register.None, MemoryIndex: Register.None })
+            return ConvertOperand(instruction, operand);
+
+        var address = instruction.IsIPRelativeMemoryOperand ? instruction.IPRelativeMemoryAddress : instruction.MemoryDisplacement64;
+
+        return ReadFloatConstant(context.AppContext.Binary, address, single) ?? ConvertOperand(instruction, operand);
+    }
+
+    private static ISIL.IOperand? ReadFloatConstant(LibCpp2IL.Il2CppBinary binary, ulong addr, bool single)
+    {
+        if (!binary.TryMapVirtualAddressToRaw(addr, out var raw))
+            return null;
+
+        var content = binary.GetRawBinaryContent();
+        var size = single ? 4 : 8;
+
+        if (raw < 0 || raw + size > content.Length)
+            return null;
+
+        var bytes = content.Slice((int)raw, size).ToArray();
+
+        return single
+            ? new ISIL.FloatLiteral(BitConverter.ToSingle(bytes, 0))
+            : new ISIL.DoubleLiteral(BitConverter.ToDouble(bytes, 0));
+    }
 
     private ISIL.IOperand ConvertOperand(Instruction instruction, int operand, bool isLeaAddress = false)
     {
@@ -859,7 +1148,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         {
             var mBase = new ISIL.Register(null, X86Utils.GetRegisterName(instruction.MemoryBase));
             var mIndex = new ISIL.Register(null, X86Utils.GetRegisterName(instruction.MemoryIndex));
-            return new ISIL.MemoryOperand(mBase, mIndex, instruction.MemoryIndexScale);
+            return new ISIL.MemoryOperand(mBase, mIndex, scale: instruction.MemoryIndexScale);
         }
 
         //No base

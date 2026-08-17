@@ -73,6 +73,44 @@ public class Il2CppMethodDefinition : ReadableClass
         }
     }
 
+    // The method-level runtime generic context entries (for generic methods), analogous to Il2CppTypeDefinition.RgctXs
+    public Il2CppRGCTXDefinition[] RgctXs
+    {
+        get
+        {
+            if (MetadataVersion < 24.2f)
+                return OwningContext.Metadata.RgctxDefinitions!.Skip(rgctxStartIndex).Take(rgctxCount).ToArray();
+
+            if (MetadataVersion >= 108)
+            {
+                var metadata = OwningContext.Metadata;
+                var image = DeclaringType?.DeclaringAssembly;
+
+                if (image == null)
+                    return [];
+
+                var range = metadata.RgctxRanges!.Skip(image.rgctxRangesStart).Take((int)image.rgctxRangesCount).FirstOrDefault(r => r.token == token);
+
+                if (range == null)
+                    return [];
+
+                return metadata.RgctxValues!.SubArray(range.start, range.length);
+            }
+
+            var cgm = DeclaringType?.CodeGenModule;
+
+            if (cgm == null)
+                return [];
+
+            var rangePair = cgm.RGCTXRanges.FirstOrDefault(r => r.token == token);
+
+            if (rangePair == null)
+                return [];
+
+            return OwningContext.Binary.GetRgctxDataForPair(cgm, rangePair);
+        }
+    }
+
     public long MethodOffsetInFile => MethodPointer == 0 ? 0 : OwningContext.Binary.TryMapVirtualAddressToRaw(MethodPointer, out var ret) ? ret : 0;
 
     public ulong Rva => MethodPointer == 0 ? 0 : OwningContext.Binary.GetRva(MethodPointer);

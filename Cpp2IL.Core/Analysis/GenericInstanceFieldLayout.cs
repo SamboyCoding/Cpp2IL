@@ -3,13 +3,12 @@ using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.Analysis;
 
-//Resolves field offsets on generic instances, which are all 0 in the metadata.
+//Resolves field offsets on generic types, which are all 0 in the metadata.
 public static class GenericInstanceFieldLayout
 {
-    public static FieldAnalysisContext? FindFieldAtOffset(GenericInstanceTypeAnalysisContext type, long targetOffset)
+    public static FieldAnalysisContext? FindFieldAtOffset(TypeAnalysisContext definition, long targetOffset)
     {
-        var definition = type.GenericType;
-        var pointerSize = type.AppContext.Binary.PointerSizeBytes;
+        var pointerSize = definition.AppContext.Binary.PointerSizeBytes;
 
         // TODO Support anything outside the trivial case.
         for (var baseType = definition.BaseType; baseType != null; baseType = baseType.BaseType)

@@ -16,14 +16,75 @@ public static class MetadataInitGuardRemover
     private const string InitializeMethod = "il2cpp_codegen_initialize_method";
     private const string ClassInitExport = "il2cpp_runtime_class_init_export";
     private const string ClassInitActual = "il2cpp_runtime_class_init_actual";
+    private const string ClassInitCodegen = "il2cpp_codegen_runtime_class_init";
 
     // Byte holding Il2CppClass's bitfield, of which bit 0 is initialized_and_no_error.
     // TODO this is almost certainly not correct on every version... but which?
     private const long InitialisedFlagOffset64 = 0x135;
     private const long InitialisedFlagOffset32 = 0xBD;
 
+    // Offset of MethodInfo::rgctx_data
+    private const long MethodRgctxOffset64 = 0x38;
+    private const long MethodRgctxOffset32 = 0x1C;
+
     public static void Run(MethodAnalysisContext method)
         => Run(method.ControlFlowGraph!, method.AppContext.Binary.is32Bit ? InitialisedFlagOffset32 : InitialisedFlagOffset64);
+
+    // Rewrite any metadata init calls we didn't remove into movs.
+    public static void RewriteUnguardedInits(MethodAnalysisContext method)
+    {
+        foreach (var instruction in method.ControlFlowGraph!.Instructions)
+        {
+            if (instruction.OpCode != OpCode.Call || instruction.Operands is not [StringLiteral { Value: InitializeRuntimeMetadata or InitializeMethod }, var result, var handle, ..])
+                continue;
+
+            instruction.OpCode = OpCode.Move;
+            instruction.SetOperands(result, handle);
+        }
+    }
+    
+    // Removes the lazy-init guards protecting a generic method's inlined RGCTX metadata lookups.
+    public static void RunRgctx(MethodAnalysisContext method)
+    {
+        var cfg = method.ControlFlowGraph!;
+        var rgctxOffset = method.AppContext.Binary.is32Bit ? MethodRgctxOffset32 : MethodRgctxOffset64;
+
+        var removedAny = false;
+
+        foreach (var guard in cfg.Blocks.ToList())
+            removedAny |= TryRemoveRgctxGuard(cfg, guard, rgctxOffset);
+
+        if (removedAny)
+            DeadCodeEliminator.Run(cfg);
+    }
+
+    private static bool TryRemoveRgctxGuard(ISILControlFlowGraph cfg, Block guard, long rgctxOffset)
+    {
+        if (guard.BlockType != BlockType.TwoWay || guard.Successors.Count != 2
+            || guard.Instructions.Count == 0 || guard.Instructions[^1].OpCode != OpCode.ConditionalJump)
+            return false;
+
+        var isRgctxGuard = guard.Instructions.Any(i =>
+            i.OpCode is OpCode.CheckEqual or OpCode.CheckNotEqual
+            && (IsRgctxLoad(i.Operands[1], rgctxOffset) && IsZero(i.Operands[2])
+                || IsRgctxLoad(i.Operands[2], rgctxOffset) && IsZero(i.Operands[1])));
+
+        if (!isRgctxGuard)
+            return false;
+
+        var first = guard.Successors[0];
+        var second = guard.Successors[1];
+
+        // treat region calls as init boilerplate, exactly as the class-init flag test does
+        return TryExcise(cfg, guard, first, second, true)
+            || TryExcise(cfg, guard, second, first, true);
+    }
+
+    private static bool IsRgctxLoad(IOperand operand, long rgctxOffset) =>
+        operand is MemoryOperand { Index: null, Scale: 0, Base: LocalVariable { Type: RuntimeMethodInfoAnalysisContext } } memory
+        && memory.Addend == rgctxOffset;
+
+    private static bool IsZero(IOperand operand) => operand is Immediate { Value: 0 };
 
     public static void Run(ISILControlFlowGraph cfg, long initialisedFlagOffset)
     {
@@ -32,8 +93,33 @@ public static class MetadataInitGuardRemover
         foreach (var guard in cfg.Blocks.ToList())
             removedAny |= TryRemoveGuard(cfg, guard, initialisedFlagOffset);
 
+        removedAny |= RemoveBareClassInitCalls(cfg);
+
         if (removedAny)
             DeadCodeEliminator.Run(cfg);
+    }
+
+    // wasm keeps the initialized-flag check inside the class-init function, so callers make bare unguarded
+    // calls with no region to excise (just drop the call)
+    private static bool RemoveBareClassInitCalls(ISILControlFlowGraph cfg)
+    {
+        var removedAny = false;
+
+        foreach (var block in cfg.Blocks)
+        {
+            foreach (var instruction in block.Instructions)
+            {
+                if (!instruction.IsCall
+                    || instruction.Operands[0] is not StringLiteral { Value: ClassInitExport or ClassInitActual or ClassInitCodegen })
+                    continue;
+
+                instruction.OpCode = OpCode.Nop;
+                instruction.SetOperands();
+                removedAny = true;
+            }
+        }
+
+        return removedAny;
     }
 
     private static bool TryRemoveGuard(ISILControlFlowGraph cfg, Block guard, long initialisedFlagOffset)
@@ -149,7 +235,7 @@ public static class MetadataInitGuardRemover
 
                     if (name is InitializeRuntimeMetadata or InitializeMethod)
                         sawMetadataInit = true;
-                    else if (name is ClassInitExport or ClassInitActual)
+                    else if (name is ClassInitExport or ClassInitActual or ClassInitCodegen)
                         sawClassInit = true;
                     else
                         return false;
@@ -177,7 +263,7 @@ public static class MetadataInitGuardRemover
         instruction.OpCode switch
         {
             OpCode.Nop => true,
-            OpCode.Move or OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide
+            OpCode.Move or OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide or OpCode.Modulo
                 or OpCode.ShiftLeft or OpCode.ShiftRight or OpCode.And or OpCode.Or or OpCode.Xor
                 or OpCode.Not or OpCode.Negate
                 or (>= OpCode.CheckEqual and <= OpCode.CheckLessOrEqual)
@@ -185,7 +271,7 @@ public static class MetadataInitGuardRemover
             _ => false,
         };
 
-    private static void Excise(ISILControlFlowGraph cfg, Block guard, Block initEntry, Block merge, HashSet<Block> region)
+    internal static void Excise(ISILControlFlowGraph cfg, Block guard, Block initEntry, Block merge, HashSet<Block> region)
     {
         // 1. Repair the merge's phis: drop the inputs from the region's back-edges.
         for (var i = merge.Predecessors.Count - 1; i >= 0; i--)

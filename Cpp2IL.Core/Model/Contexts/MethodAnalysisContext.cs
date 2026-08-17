@@ -70,7 +70,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
 
     public List<string> AnalysisWarnings = [];
 
-    public static int MaxMethodSizeBytes = 18000; // 18KB
+    public static int MaxMethodSizeBytes = 30000; // 30KB
 
     public List<ParameterAnalysisContext> Parameters = [];
 
@@ -328,13 +328,13 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
     {
         //Some abstract methods (on interfaces, no less) apparently have a body? Unity doesn't support default interface methods so idk what's going on here.
         //E.g. UnityEngine.Purchasing.AppleCore.dll: UnityEngine.Purchasing.INativeAppleStore::SetUnityPurchasingCallback on among us (itch.io build)
-        if (Definition != null && Definition.MethodPointer != 0 && !Definition.Attributes.HasFlag(MethodAttributes.Abstract))
+        if (UnderlyingPointer != 0 && !DefaultAttributes.HasFlag(MethodAttributes.Abstract))
         {
             RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, this is AttributeGeneratorMethodAnalysisContext);
 
             if (RawBytes.Length == 0)
             {
-                Logger.VerboseNewline("\t\t\tUnexpectedly got 0-byte method body for " + this + $". Pointer was 0x{Definition.MethodPointer:X}", "MAC");
+                Logger.VerboseNewline("\t\t\tUnexpectedly got 0-byte method body for " + this + $". Pointer was 0x{UnderlyingPointer:X}", "MAC");
             }
         }
     }
@@ -399,9 +399,19 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
         // Delete any il2cpp_codegen_initialize_runtime_metadata/il2cpp_codegen_initialize_method
         MetadataInitGuardRemover.Run(this);
 
+        // Delete inlined GC write barriers
+        WriteBarrierRecovery.Run(this);
+
         InjectedCheckRemover.Run(this);
 
+        InterfaceDispatchRecovery.Run(this);
+
         LocalVariables.ResolveTypesAndFields(this);
+
+        // Needs the MethodInfo* receivers typed, so runs after resolution unlike the class-init guards
+        MetadataInitGuardRemover.RunRgctx(this);
+
+        MetadataInitGuardRemover.RewriteUnguardedInits(this);
 
         // Needs type resolved for delegate locals
         DelegateInvokeRecovery.Run(this);
@@ -411,6 +421,13 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
         // Copy/constant propagation belongs in SSA, where one definition dominates all uses and phis
         // make joins explicit, so forwarding a value is an unconditional global substitution.
         SsaSimplifier.Run(this);
+
+        // Folding a constant exposes more to propagate
+        for (var i = 0; i < 8 && ConstantFolder.Run(this); i++)
+            SsaSimplifier.Run(this);
+
+        InternalCallGuardRemover.Run(this);
+        KeyFunctionRecovery.Run(this);
 
         SsaForm.Remove(this);
 
@@ -429,6 +446,8 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
         ArrayRecovery.Run(this);
 
         LocalVariables.TypeAddressedLocals(this);
+
+        ConstantBranchFolder.Run(this);
 
         // Near-last, as it depends on the final block layout
         EqualityBranchInverter.Run(this);

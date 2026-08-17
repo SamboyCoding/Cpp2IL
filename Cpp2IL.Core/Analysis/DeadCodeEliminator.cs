@@ -97,8 +97,27 @@ public static class DeadCodeEliminator
                 case AddressOf { Target: LocalVariable addressed }:
                     yield return addressed;
                     break;
+                case AddressOf { Target: ArrayAccess addressedElement }:
+                    foreach (var used in ArrayAccessLocals(addressedElement))
+                        yield return used;
+                    break;
+                case ArrayAccess access:
+                    foreach (var used in ArrayAccessLocals(access))
+                        yield return used;
+                    break;
+                case ArrayLength { Array: { } lengthArray }:
+                    yield return lengthArray;
+                    break;
             }
         }
+    }
+
+    private static IEnumerable<LocalVariable> ArrayAccessLocals(ArrayAccess access)
+    {
+        yield return access.Array;
+
+        if (access.Index is LocalVariable index)
+            yield return index;
     }
 
     /// <summary>
@@ -109,7 +128,7 @@ public static class DeadCodeEliminator
         opCode switch
         {
             OpCode.Move or OpCode.Phi
-                or OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide
+                or OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide or OpCode.Modulo
                 or OpCode.ShiftLeft or OpCode.ShiftRight
                 or OpCode.And or OpCode.Or or OpCode.Xor
                 or OpCode.Not or OpCode.Negate=> true,
