@@ -1,12 +1,14 @@
-﻿namespace LibCpp2IL.Elf;
+namespace LibCpp2IL.Elf;
 
 public enum ElfRelocationType : uint
 {
+    R_ARM_NONE = 0,
     R_ARM_ABS32 = 2,
     R_ARM_REL32 = 3,
     R_ARM_PC13 = 4,
     R_ARM_COPY = 20,
 
+    R_AARCH64_NONE = 0,
     R_AARCH64_ABS64 = 0x101,
     R_AARCH64_PREL64 = 0x104,
     R_AARCH64_GLOB_DAT = 0x401,
