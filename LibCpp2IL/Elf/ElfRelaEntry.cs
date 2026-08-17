@@ -1,7 +1,10 @@
-﻿namespace LibCpp2IL.Elf;
+namespace LibCpp2IL.Elf;
 
 public class ElfRelaEntry : ReadableClass
 {
+    public const int StructSize64Bit = sizeof(ulong) * 3;
+    public const int StructSize32Bit = sizeof(uint) * 3;
+
     public ulong Offset;
     public ulong Info;
     public ulong Addend;

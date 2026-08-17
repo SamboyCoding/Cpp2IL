@@ -9,7 +9,7 @@ using LibCpp2IL.Logging;
 
 namespace LibCpp2IL.NintendoSwitch;
 
-public sealed class NsoFile : Il2CppBinary
+public sealed class NsoFile : ElfStyleRelocationsBinary
 {
     private const ulong NsoGlobalOffset = 0;
 
@@ -90,7 +90,7 @@ public sealed class NsoFile : Il2CppBinary
             ReadModHeader();
             ReadDynamicSection();
             ReadSymbolTable();
-            ApplyRelocations();
+            ProcessRelocations();
         }
 
         LibLogger.VerboseNewline($"\tNSO Read completed OK.");
@@ -170,41 +170,13 @@ public sealed class NsoFile : Il2CppBinary
         LibLogger.VerboseNewline($"Got {_symbolTable.Length} symbols");
     }
 
-    private void ApplyRelocations()
+    private void ProcessRelocations()
     {
-        ElfRelaEntry[] relaEntries;
-
-        try
-        {
-            var dtRela = GetDynamicEntry(ElfDynamicType.DT_RELA) ?? throw new("No relocations found in NSO");
-            var dtRelaSize = GetDynamicEntry(ElfDynamicType.DT_RELASZ) ?? throw new("No relocation size entry found in NSO");
-            relaEntries = ReadReadableArrayAtVirtualAddress<ElfRelaEntry>(dtRela.Value, (long)(dtRelaSize.Value / 24)); //24 being sizeof(ElfRelaEntry) on 64-bit
-        }
-        catch
-        {
-            //If we don't have relocations, that's fine.
-            return;
-        }
-
-        LibLogger.VerboseNewline($"\tApplying {relaEntries.Length} relocations from DT_RELA...");
-
-        foreach (var elfRelaEntry in relaEntries)
-        {
-            switch (elfRelaEntry.Type)
-            {
-                case ElfRelocationType.R_AARCH64_ABS64:
-                case ElfRelocationType.R_AARCH64_GLOB_DAT:
-                    var symbol = _symbolTable[elfRelaEntry.Symbol];
-                    WriteWord((int)MapVirtualAddressToRaw(elfRelaEntry.Offset), symbol.Value + elfRelaEntry.Addend);
-                    break;
-                case ElfRelocationType.R_AARCH64_RELATIVE:
-                    WriteWord((int)MapVirtualAddressToRaw(elfRelaEntry.Offset), elfRelaEntry.Addend);
-                    break;
-                default:
-                    LibLogger.WarnNewline($"Unknown relocation type {elfRelaEntry.Type}");
-                    break;
-            }
-        }
+        ApplyRelocations(dynamicEntries
+                .Where(x => x.Tag != ElfDynamicType.DT_NEEDED)
+                .ToDictionary(x => x.Tag, x => x.Value),
+            NsoGlobalOffset,
+            is32Bit ? ElfMachine.EM_ARM : ElfMachine.EM_AARCH64);
     }
 
     public ElfDynamicEntry? GetDynamicEntry(ElfDynamicType tag) => dynamicEntries.Find(x => x.Tag == tag);
