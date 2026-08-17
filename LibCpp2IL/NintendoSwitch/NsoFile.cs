@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -107,7 +108,7 @@ public sealed class NsoFile : Il2CppBinary
         _modHeader.ModOffset = ReadUInt32();
 
         //Now we have the real mod header position, go to it and read
-        Position = _header.TextSegment.FileOffset + _modHeader.ModOffset + 4;
+        Position = MapVirtualAddressToRaw(_modHeader.ModOffset) + 4;
         _modHeader.DynamicOffset = ReadUInt32() + _modHeader.ModOffset;
         _modHeader.BssStart = ReadUInt32();
         _modHeader.BssEnd = ReadUInt32();
@@ -249,8 +250,14 @@ public sealed class NsoFile : Il2CppBinary
         writer.Write(_header.TextHash);
         writer.Write(_header.RoDataHash);
         writer.Write(_header.DataHash);
-        writer.BaseStream.Position = _header.TextSegment.FileOffset;
+
+        Position = _header.ModuleOffset;
+        var moduleName = ReadBytes((int)_header.ModuleFileSize);
+        writer.Write(moduleName);
+
+        Debug.Assert(writer.BaseStream.Position == _header.TextSegment.FileOffset);
         Position = _header.TextSegment.FileOffset;
+        
         var textBytes = ReadBytes((int)_header.TextCompressedSize);
         if (_isTextCompressed)
         {
