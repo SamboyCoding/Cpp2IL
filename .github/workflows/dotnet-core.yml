@@ -106,7 +106,7 @@ jobs:
             -   name: Build all
                 run: dotnet build -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
             -   name: Run Tests
-                run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=lcov /p:CoverletOutput='./lcov.info' /p:ExcludeByAttribute="LibCpp2IL.Coverage.NoCoverageAttribute"
+                run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=lcov /p:TestingPlatformDotnetTestSupport=true /p:CoverletOutput='./lcov.info' /p:ExcludeByAttribute="LibCpp2IL.Coverage.NoCoverageAttribute"
             -   name: Upload Coverage
                 uses: coverallsapp/github-action@v2.3.8
                 with:
