@@ -75,6 +75,14 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
         }
     }
     
+    private static byte CyclicXorByteAt(ReadOnlySpan<byte> data, int i, byte xorKey, bool isPlus, int offset)
+    {
+        var keyByte = (byte) ((isPlus
+            ? (xorKey + offset + i)
+            : (i - offset - xorKey)) & 0xFF);
+        return (byte) (data[i] ^ keyByte);
+    }
+    
     private static IEnumerable<(byte key, bool isPlus)> DeriveXorKeyCandidates(byte[] encryptedHeader)
     {
         var seen = new HashSet<(byte, bool)>();
@@ -149,8 +157,8 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
             }
         }
     }
-
-    private List<List<ReconstructedSection>> FindPathsThroughMetadata(uint[] headerWords, int dataStart, int fileEnd, out SortedCollection<DeadEnd> bestDeadEnds, int maxResults = 10, int debugBestN = 10, int? expectedSectionCount = null, Dictionary<int, int>? alignBefore = null, int? originalHeaderSize = null)
+    
+    private List<(List<ReconstructedSection> Sections, int EndPos)> FindPathsThroughMetadata(uint[] headerWords, int dataStart, int maxEnd, out SortedCollection<DeadEnd> bestDeadEnds, int maxResults = 10, int debugBestN = 10, int? expectedSectionCount = null, Dictionary<int, int>? alignBefore = null, int? originalHeaderSize = null)
     {
         alignBefore ??= new();
         var realOriginalHeaderSize = originalHeaderSize ?? dataStart;
@@ -161,14 +169,54 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
         List<DeadEnd> deadEnds = new();
         var localBestDeadEnds = bestDeadEnds = new();
         
-        //Keep track of how many times each word appears so we can find a path using only the values which exist
-        var pool = new SortedCollection<uint>(headerWords);
+        //The pool of header words we can still draw from. It never changes size, only which
+        //entries are currently spoken for, so keep it as a sorted array plus a used flag per
+        //slot. That makes indexing, claiming and releasing a word all O(1) and lets us binary
+        //search for the words that are in range.
+        var pool = headerWords.ToArray();
+        Array.Sort(pool);
+        var used = new bool[pool.Length];
 
-        List<List<ReconstructedSection>> results = new();
+        List<(List<ReconstructedSection> Sections, int EndPos)> results = new();
 
-        DepthFirstSearch(dataStart, pool, []);
-        
+        DepthFirstSearch(dataStart, []);
+
         return results;
+
+        //Index of the last word that is <= value, or -1 if there is no such word.
+        int LastAtMost(long value)
+        {
+            int lo = 0, hi = pool.Length - 1, found = -1;
+            while (lo <= hi)
+            {
+                var mid = (lo + hi) >> 1;
+                if (pool[mid] <= value)
+                {
+                    found = mid;
+                    lo = mid + 1;
+                }
+                else
+                    hi = mid - 1;
+            }
+
+            return found;
+        }
+
+        //Index of the first word that is >= value, or pool.Length if there is no such word.
+        int FirstAtLeast(long value)
+        {
+            int lo = 0, hi = pool.Length;
+            while (lo < hi)
+            {
+                var mid = (lo + hi) >> 1;
+                if (pool[mid] < value)
+                    lo = mid + 1;
+                else
+                    hi = mid;
+            }
+
+            return lo;
+        }
 
         void TrackDeadEnd(int actualPos, List<ReconstructedSection> sections, string reason)
         {
@@ -190,15 +238,6 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
                 localBestDeadEnds.RemoveAt(localBestDeadEnds.Count - 1);
         }
 
-        bool OffsetInRange(uint candidateOffset, int actualPos)
-        {
-            const int MinDelta = 0x10;
-            const int MaxDelta = 0x40;
-            
-            var delta = Math.Abs(actualPos - candidateOffset);
-            return delta is >= MinDelta and <= MaxDelta;
-        }
-        
         //Alignment is according to the header before it was mangled, i.e. with original header size
         int ApplyAlignment(int actualPos, int sectionIndex)
         {
@@ -214,7 +253,7 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
             return actualPos + padding;
         }
 
-        void DepthFirstSearch(int actualPos, SortedCollection<uint> remainingPool, List<ReconstructedSection> sections)
+        void DepthFirstSearch(int actualPos, List<ReconstructedSection> sections)
         {
             if(results.Count >= maxResults)
                 return;
@@ -222,64 +261,87 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
             var sectionIndex = sections.Count;
             actualPos = ApplyAlignment(actualPos, sectionIndex);
             
-            var shortfall = fileEnd - actualPos;
-            if (shortfall <= 0)
+            if (expectedSectionCount != null && sections.Count == expectedSectionCount)
             {
-                if(expectedSectionCount == null || sections.Count == expectedSectionCount)
-                    results.Add([..sections]);
-                
+                results.Add(([..sections], actualPos));
+                return;
+            }
+
+            if (actualPos >= maxEnd)
+            {
+                if (expectedSectionCount == null)
+                    results.Add(([..sections], actualPos));
+
                 return; //we've gone past the end of the file, so this is invalid
             }
 
-            var candidateOffsets = new List<uint>();
-            foreach (var offset in remainingPool)
+            const int MinDelta = 0x10;
+            const int MaxDelta = 0x40;
+
+            //A section's offset field sits a little way either side of where the section really
+            //starts, so only two narrow windows of the sorted pool can supply it.
+            var beforeFrom = FirstAtLeast((long)actualPos - MaxDelta);
+            var beforeTo = LastAtMost((long)actualPos - MinDelta);
+            var afterFrom = FirstAtLeast((long)actualPos + MinDelta);
+            var afterTo = LastAtMost((long)actualPos + MaxDelta);
+            
+            var lengthLimit = LastAtMost((long)maxEnd + maxAlignPad - actualPos);
+
+            var anyOffsetFound = false;
+            var anyLengthFound = false;
+
+            for (var window = 0; window < 2; window++)
             {
-                if(OffsetInRange(offset, actualPos))
-                    candidateOffsets.Add(offset);
+                var from = window == 0 ? beforeFrom : afterFrom;
+                var to = window == 0 ? beforeTo : afterTo;
+
+                for (var i = from; i <= to; i++)
+                {
+                    if (used[i])
+                        continue;
+                    
+                    if (i > from && pool[i] == pool[i - 1] && !used[i - 1])
+                        continue;
+
+                    anyOffsetFound = true;
+
+                    var candidateOffset = pool[i];
+                    var delta = actualPos - candidateOffset;
+                    used[i] = true;
+
+                    for (var j = lengthLimit; j >= 0; j--)
+                    {
+                        if (used[j])
+                            continue;
+
+                        if (j < lengthLimit && pool[j] == pool[j + 1] && !used[j + 1])
+                            continue;
+
+                        var length = pool[j];
+
+                        //this cuts down on the number of invalid paths we get quite significantly
+                        if (sectionIndex < 26 && length == 0)
+                            //don't allow zero lengths for the first 26 sections
+                            continue;
+
+                        used[j] = true;
+                        anyLengthFound = true;
+                        sections.Add(new ReconstructedSection((int)candidateOffset, (int)length, (int)delta));
+
+                        DepthFirstSearch((int)(actualPos + length), sections);
+
+                        sections.RemoveAt(sections.Count - 1);
+                        used[j] = false;
+                    }
+
+                    used[i] = false;
+                }
             }
 
-            if (candidateOffsets.Count == 0)
+            if (!anyOffsetFound)
             {
                 TrackDeadEnd(actualPos, sections, "No valid candidate offsets");
                 return; //no more valid offsets, so this is a dead end
-            }
-
-            var anyLengthFound = false;
-            candidateOffsets.Sort();
-            for (var i = 0; i < candidateOffsets.Count; i++)
-            {
-                var candidateOffset = candidateOffsets[i];
-                remainingPool.Remove(candidateOffset);
-                var delta = actualPos - candidateOffset;
-
-                var foundLength = false;
-                for (var j = 0; j < remainingPool.Count; j++)
-                {
-                    var length = remainingPool[j];
-                    var newPos = (int)(actualPos + length);
-                    if (newPos > fileEnd + maxAlignPad)
-                        break; //lengths are sorted ascending, so if this length is too long then the rest will be too
-
-                    //this cuts down on the number of invalid paths we get quite significantly
-                    if (sectionIndex < 26 && length == 0)
-                        //don't allow zero lengths for the first 26 sections
-                        continue;
-
-                    remainingPool.Remove(length);
-
-                    foundLength = true;
-                    sections.Add(new ReconstructedSection((int)candidateOffset, (int)length, (int)delta));
-
-                    DepthFirstSearch(newPos, remainingPool, sections);
-
-                    sections.RemoveAt(sections.Count - 1);
-                    remainingPool.Add(length);
-                }
-
-                if (foundLength)
-                    anyLengthFound = true;
-
-                remainingPool.Add(candidateOffset);
             }
 
             if (!anyLengthFound)
@@ -301,26 +363,26 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
         {
             try
             {
+                //Each attempt has to stand on its own, so don't let anything the previous one
+                //decrypted count towards this one's checks.
+                decryptedSectionBytes.Clear();
+
                 byte sectionsXorKeyAddend = 0;
                 var stringLiteralsKeyComponent = usingOffsetNotSize ? stringLiteralsStart : stringLiteralsSize;
                 var testAddend = (byte)((stringLiteralsIsPlus ? (stringLiteralsXorKey - stringLiteralsKeyComponent) : (stringLiteralsXorKey + stringLiteralsKeyComponent)) & 0xFF);
 
-                //Now decrypt the string literals section
-                var decryptedLiterals = new byte[stringLiteralsSize];
-                CyclicXor(
-                    encryptedMetadata.AsSpan(sections[StringLiteralsSectionIndex].Start, stringLiteralsSize),
-                    decryptedLiterals,
-                    testAddend,
-                    stringLiteralsIsPlus,
-                    stringLiteralsKeyComponent
-                );
-
-                if (decryptedLiterals[0] == 0 && decryptedLiterals[1] == 0)
+                //Now decrypt the string literals section, once the first two bytes say the key is right
+                var encryptedLiterals = encryptedMetadata.AsSpan(sections[StringLiteralsSectionIndex].Start, stringLiteralsSize);
+                if (CyclicXorByteAt(encryptedLiterals, 0, testAddend, stringLiteralsIsPlus, stringLiteralsKeyComponent) == 0
+                    && CyclicXorByteAt(encryptedLiterals, 1, testAddend, stringLiteralsIsPlus, stringLiteralsKeyComponent) == 0)
                 {
                     sectionsXorKeyAddend = testAddend;
+
+                    var decryptedLiterals = new byte[stringLiteralsSize];
+                    CyclicXor(encryptedLiterals, decryptedLiterals, testAddend, stringLiteralsIsPlus, stringLiteralsKeyComponent);
                     decryptedSectionBytes[StringLiteralsSectionIndex] = decryptedLiterals;
                 }
-                
+
                 if (!decryptedSectionBytes.ContainsKey(StringLiteralsSectionIndex))
                     throw new Exception("Failed to determine whether section keys are based on offsets or sizes");
                 
@@ -427,21 +489,18 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
                     var sectionSize = sections[sectionIndex].End - sections[sectionIndex].Start;
                     var sectionKeyComponent = usingOffsetNotSize ? sectionStart : sectionSize;
 
-                    var decryptedSection = new byte[sectionSize];
-                    foreach (var testIsPlus in new bool[] { true, false })
+                    var encryptedSection = encryptedMetadata.AsSpan(sectionStart, sectionSize);
+                    foreach (var testIsPlus in stackalloc bool[] { true, false })
                     {
-                        CyclicXor(
-                            encryptedMetadata.AsSpan(sectionStart, sectionSize),
-                            decryptedSection,
-                            sectionsXorKeyAddend,
-                            testIsPlus,
-                            sectionKeyComponent
-                        );
-                        if (decryptedSection[3] == 0)
-                        {
-                            decryptedSectionBytes[sectionIndex] = decryptedSection;
-                            break;
-                        }
+                        //Probe the one byte the direction is judged on, then decrypt the section
+                        //once we know which way round it goes.
+                        if (CyclicXorByteAt(encryptedSection, 3, sectionsXorKeyAddend, testIsPlus, sectionKeyComponent) != 0)
+                            continue;
+
+                        var decryptedSection = new byte[sectionSize];
+                        CyclicXor(encryptedSection, decryptedSection, sectionsXorKeyAddend, testIsPlus, sectionKeyComponent);
+                        decryptedSectionBytes[sectionIndex] = decryptedSection;
+                        break;
                     }
 
                     if (!decryptedSectionBytes.ContainsKey(sectionIndex))
@@ -557,69 +616,48 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
                 
                 Logger.VerboseNewline("Decrypted header: " + string.Join("", decryptedHeader.Select(b => b.ToString("X2"))));
 
-                var lengthsToTry = Enumerable.Sequence(metadataLength, headerLength, -4).ToArray();
-                byte[]? rebuiltMetadata = null;
-                var winningIndex = long.MaxValue;
-                var rebuiltMetadataLock = new object();
+                //One search, bounded by the largest the metadata could possibly be, finds the
+                //layouts for every candidate length at once. The end position of each chain is
+                //the length it implies, so there's no need to guess lengths one at a time.
+                var paths = FindPathsThroughMetadata(headerWords, headerLength, metadataLength, out _, maxResults: 65536, debugBestN: 0, expectedSectionCount: expectedSectionCount, alignBefore: sectionAlignments, originalHeaderSize: originalHeaderSize);
 
-                // Preserve the original highest-length-first behavior while still stopping lower-priority work once a candidate is found.
-                Parallel.ForEach(Partitioner.Create(lengthsToTry, loadBalance: true), (length, loopState, index) =>
+                if (paths.Count == 0)
+                    continue; //this key/header candidate doesn't lead anywhere, try the next one
+
+                //We'll likely get a couple dozen paths due to the fake offsets, which vary in supposed position and delta, but they should all agree on *actual* position in file.
+                //We check that that's the case, and take those actual positions as gospel.
+                //NB actually we don't check if that's the case because they sometimes differ in unimportant sections, too bad!
+                Logger.VerboseNewlineIfDebug($"Found {paths.Count} possible section layouts.");
+
+                //Longest first, matching the old behaviour of trying the largest metadata length first.
+                var distinct = paths
+                    .OrderByDescending(path => path.EndPos)
+                    .Select(path => path.Sections.Select(section => (section.ActualOffset, section.ActualOffset + section.Length)).ToArray())
+                    .Distinct(new SectionRangeComparer())
+                    .ToArray();
+
+                Logger.VerboseNewlineIfDebug($"These collapse to {distinct.Length} distinct actual section layouts.");
+
+                foreach (var acceptedLayout in distinct)
                 {
-                    if (index > loopState.LowestBreakIteration || index > Interlocked.Read(ref winningIndex))
-                        return;
+                    Logger.VerboseNewlineIfDebug($"Trying section layout: " + string.Join(", ", acceptedLayout.Select(range => $"({range.Item1:X4}-{range.Item2:X4})")));
 
-                    Logger.VerboseNewlineIfDebug($"Trying metadata length 0x{length:X4}");
-
-                    var paths = FindPathsThroughMetadata(headerWords, headerLength, length, out var bestDeadEnds, maxResults: 65536, debugBestN: 0, expectedSectionCount: expectedSectionCount, alignBefore: sectionAlignments, originalHeaderSize: originalHeaderSize);
-
-                    if (paths.Count > 0)
+                    try
                     {
-                        //We'll likely get a couple dozen paths due to the fake offsets, which vary in supposed position and delta, but they should all agree on *actual* position in file.
-                        //We check that that's the case, and take those actual positions as gospel.
-                        //NB actually we don't check if that's the case because they sometimes differ in unimportant sections, too bad!
-                        Logger.VerboseNewlineIfDebug($"Found {paths.Count} possible section layouts with metadata length 0x{length:X4} bytes.");
+                        var rebuiltMetadata = RebuildMetadata(originalBytes, acceptedLayout.ToList(), stringLiteralsXorKey, stringLiteralsIsPlus, offsetDelta: originalHeaderSize - headerLength, MetadataVersion, assembliesSectionIndex);
 
-                        var actualRanges = paths.Select(path => path.Select(section => (section.ActualOffset, section.ActualOffset + section.Length)).ToArray()).ToArray();
-                        var distinct = actualRanges.Distinct(new SectionRangeComparer()).ToArray();
+                        Logger.InfoNewline("Returning decrypted metadata now...");
 
-                        Logger.VerboseNewlineIfDebug($"These collapse to {distinct.Length} distinct actual section layouts.");
-
-                        foreach (var acceptedLayout in distinct)
-                        {
-                            Logger.VerboseNewlineIfDebug($"Trying section layout: " + string.Join(", ", acceptedLayout.Select(range => $"({range.Item1:X4}-{range.Item2:X4})")));
-
-                            try
-                            {
-                                var ret = RebuildMetadata(originalBytes, acceptedLayout.ToList(), stringLiteralsXorKey, stringLiteralsIsPlus, offsetDelta: originalHeaderSize - headerLength, MetadataVersion, assembliesSectionIndex);
-                                var installedWinningResult = false;
-                                lock (rebuiltMetadataLock)
-                                {
-                                    if (index < winningIndex)
-                                    {
-                                        winningIndex = index;
-                                        rebuiltMetadata = ret;
-                                        installedWinningResult = true;
-                                    }
-                                }
-
-                                if (!installedWinningResult)
-                                    return;
-
-                                Logger.InfoNewline("Returning decrypted metadata now...");
-                                loopState.Break();
-                                return;
-                            }
-                            catch (Exception)
-                            {
-                                continue;
-                            }
-                        }
+                        // NOTE: local-only, strip before opening the PR — the deobfuscation pipeline
+                        // consumes this dumped file; upstream shouldn't have this side effect.
+                        System.IO.File.WriteAllBytes("decrypted_metadata.dat", rebuiltMetadata);
+                        return rebuiltMetadata;
                     }
-
-                });
-
-                if (rebuiltMetadata != null)
-                    return rebuiltMetadata;
+                    catch (Exception)
+                    {
+                        continue;
+                    }
+                }
             }
         }
 
