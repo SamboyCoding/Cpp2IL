@@ -2,7 +2,7 @@ using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.ISIL;
 
-public class LocalVariable(string name, Register register, TypeAnalysisContext? type = null)
+public class LocalVariable(string name, Register register, TypeAnalysisContext? type = null) : IOperand
 {
     public string Name = name;
     public Register Register = register;

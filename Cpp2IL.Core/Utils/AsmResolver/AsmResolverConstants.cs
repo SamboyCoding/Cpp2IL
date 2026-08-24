@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Text;
 using AsmResolver.DotNet;
 using AsmResolver.PE.DotNet.Metadata.Tables;
@@ -8,10 +7,10 @@ namespace Cpp2IL.Core.Utils.AsmResolver;
 
 public static class AsmResolverConstants
 {
-    public static readonly Constant Null = Constant.FromNull();
+    private static readonly Constant Null = Constant.FromNull();
 
-    private static readonly Dictionary<int, Constant> IntegerCache = new();
-    private static readonly Dictionary<byte, Constant> ByteCache = new();
+    private static readonly Constant[] IntegerCache = new Constant[16];
+    private static readonly Constant[] ByteCache = new Constant[16];
 
     private static readonly Constant SingleZero = Constant.FromValue(0.0F);
 
@@ -27,10 +26,11 @@ public static class AsmResolverConstants
         }
     }
 
-    public static Constant GetOrCreateConstant(object from)
+    public static Constant GetOrCreateConstant(object? from)
     {
         return from switch
         {
+            null => Null,
             string s => new(ElementType.String, new(Encoding.Unicode.GetBytes(s))),
             bool b => b ? BoolTrue : BoolFalse,
             byte and >= 0 and < 16 => ByteCache[(byte)@from],
@@ -45,10 +45,8 @@ public static class AsmResolverConstants
         return new(GetElementTypeFromConstant(from), new(MiscUtils.RawBytes(from)));
     }
 
-    private static ElementType GetElementTypeFromConstant(object? primitive)
-        => primitive is null
-            ? ElementType.Object
-            : primitive switch
+    private static ElementType GetElementTypeFromConstant(IConvertible primitive)
+        => primitive switch
             {
                 sbyte => ElementType.I1,
                 byte => ElementType.U1,

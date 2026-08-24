@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
@@ -17,11 +18,13 @@ public sealed class LibCpp2IlReflectionCache
     private readonly ConcurrentDictionary<string, Il2CppTypeDefinition?> _cachedTypesByFullName = new();
 
     private readonly Dictionary<Il2CppTypeDefinition, Il2CppVariableWidthIndex<Il2CppTypeDefinition>> _typeIndices = new();
-    private readonly Dictionary<Il2CppMethodDefinition, Il2CppVariableWidthIndex<Il2CppMethodDefinition>> _methodIndices = new();
-    private readonly Dictionary<Il2CppFieldDefinition, Il2CppVariableWidthIndex<Il2CppFieldDefinition>> _fieldIndices = new();
-    private readonly Dictionary<Il2CppPropertyDefinition, int> _propertyIndices = new();
 
-    private readonly Dictionary<Il2CppFieldDefinition, Il2CppTypeDefinition> _fieldDeclaringTypes = new();
+    // lazily built, see BuildOnce
+    private readonly object _lazyLock = new();
+    private Dictionary<Il2CppMethodDefinition, Il2CppVariableWidthIndex<Il2CppMethodDefinition>>? _methodIndices;
+    private Dictionary<Il2CppFieldDefinition, Il2CppVariableWidthIndex<Il2CppFieldDefinition>>? _fieldIndices;
+    private Dictionary<Il2CppPropertyDefinition, int>? _propertyIndices;
+    private Dictionary<Il2CppFieldDefinition, Il2CppTypeDefinition>? _fieldDeclaringTypes;
 
     private readonly Dictionary<Il2CppTypeEnum, Il2CppType> _primitiveTypeCache = new();
     public Dictionary<Il2CppTypeEnum, Il2CppTypeDefinition> PrimitiveTypeDefinitions { get; } = new();
@@ -41,10 +44,14 @@ public sealed class LibCpp2IlReflectionCache
         lock (_typeIndices)
             _typeIndices.Clear();
 
-        _methodIndices.Clear();
-        _fieldIndices.Clear();
-        _propertyIndices.Clear();
-        _fieldDeclaringTypes.Clear();
+        lock (_lazyLock)
+        {
+            _methodIndices = null;
+            _fieldIndices = null;
+            _propertyIndices = null;
+            _fieldDeclaringTypes = null;
+        }
+
         _primitiveTypeCache.Clear();
         PrimitiveTypeDefinitions.Clear();
         _il2CppTypeCache.Clear();
@@ -123,79 +130,83 @@ public sealed class LibCpp2IlReflectionCache
     public Il2CppVariableWidthIndex<Il2CppTypeDefinition> GetTypeIndexFromType(Il2CppTypeDefinition typeDefinition)
         => _typeIndices.GetOrDefault(typeDefinition, Il2CppVariableWidthIndex<Il2CppTypeDefinition>.Null);
 
+    // A half-built dictionary must never be visible to another thread, so the fully populated one is
+    // published in a single reference write rather than filled in place behind a count check.
+    private T BuildOnce<T>(ref T? cache, Func<T> build) where T : class
+    {
+        if (Volatile.Read(ref cache) is { } existing)
+            return existing;
+
+        lock (_lazyLock)
+        {
+            if (cache is { } raced)
+                return raced;
+
+            var built = build();
+            Volatile.Write(ref cache, built);
+            return built;
+        }
+    }
+
     public Il2CppVariableWidthIndex<Il2CppMethodDefinition> GetMethodIndexFromMethod(Il2CppMethodDefinition methodDefinition)
     {
-        if (_methodIndices.Count == 0)
+        var indices = BuildOnce(ref _methodIndices, () =>
         {
-            lock (_methodIndices)
-            {
-                if (_methodIndices.Count == 0)
-                {
-                    for (var i = 0; i < Context.Metadata.MethodDefinitionCount; i++)
-                    {
-                        var def = Context.Metadata.methodDefs[i];
-                        _methodIndices[def] = Il2CppVariableWidthIndex<Il2CppMethodDefinition>.MakeTemporaryForFixedWidthUsage(i);
-                    }
-                }
-            }
-        }
+            var result = new Dictionary<Il2CppMethodDefinition, Il2CppVariableWidthIndex<Il2CppMethodDefinition>>();
 
-        return _methodIndices.GetOrDefault(methodDefinition, Il2CppVariableWidthIndex<Il2CppMethodDefinition>.Null);
+            for (var i = 0; i < Context.Metadata.MethodDefinitionCount; i++)
+                result[Context.Metadata.methodDefs[i]] = Il2CppVariableWidthIndex<Il2CppMethodDefinition>.MakeTemporaryForFixedWidthUsage(i);
+
+            return result;
+        });
+
+        return indices.GetOrDefault(methodDefinition, Il2CppVariableWidthIndex<Il2CppMethodDefinition>.Null);
     }
 
     public Il2CppVariableWidthIndex<Il2CppFieldDefinition> GetFieldIndexFromField(Il2CppFieldDefinition fieldDefinition)
     {
-        if (_fieldIndices.Count == 0)
+        var indices = BuildOnce(ref _fieldIndices, () =>
         {
-            lock (_fieldIndices)
-            {
-                if (_fieldIndices.Count == 0)
-                {
-                    for (var i = 0; i < Context.Metadata.fieldDefs.Length; i++)
-                    {
-                        var def = Context.Metadata.fieldDefs[i];
-                        _fieldIndices[def] = Il2CppVariableWidthIndex<Il2CppFieldDefinition>.MakeTemporaryForFixedWidthUsage(i);
-                    }
-                }
-            }
-        }
+            var result = new Dictionary<Il2CppFieldDefinition, Il2CppVariableWidthIndex<Il2CppFieldDefinition>>();
 
-        return _fieldIndices[fieldDefinition];
+            for (var i = 0; i < Context.Metadata.fieldDefs.Length; i++)
+                result[Context.Metadata.fieldDefs[i]] = Il2CppVariableWidthIndex<Il2CppFieldDefinition>.MakeTemporaryForFixedWidthUsage(i);
+
+            return result;
+        });
+
+        return indices[fieldDefinition];
     }
 
     public int GetPropertyIndexFromProperty(Il2CppPropertyDefinition propertyDefinition)
     {
-        if (_propertyIndices.Count == 0)
+        var indices = BuildOnce(ref _propertyIndices, () =>
         {
-            lock (_propertyIndices)
-            {
-                if (_propertyIndices.Count == 0)
-                {
-                    for (var i = 0; i < Context.Metadata.propertyDefs.Length; i++)
-                        _propertyIndices[Context.Metadata.propertyDefs[i]] = i;
-                }
-            }
-        }
+            var result = new Dictionary<Il2CppPropertyDefinition, int>();
 
-        return _propertyIndices[propertyDefinition];
+            for (var i = 0; i < Context.Metadata.propertyDefs.Length; i++)
+                result[Context.Metadata.propertyDefs[i]] = i;
+
+            return result;
+        });
+
+        return indices[propertyDefinition];
     }
 
     public Il2CppTypeDefinition GetDeclaringTypeFromField(Il2CppFieldDefinition fieldDefinition)
     {
-        if (_fieldDeclaringTypes.Count == 0)
+        var declaringTypes = BuildOnce(ref _fieldDeclaringTypes, () =>
         {
-            lock (_fieldDeclaringTypes)
-            {
-                if (_fieldDeclaringTypes.Count == 0)
-                {
-                    foreach (var declaringType in Context.Metadata.typeDefs)
-                    foreach (var field in declaringType.Fields ?? [])
-                        _fieldDeclaringTypes[field] = declaringType;
-                }
-            }
-        }
+            var result = new Dictionary<Il2CppFieldDefinition, Il2CppTypeDefinition>();
 
-        return _fieldDeclaringTypes[fieldDefinition];
+            foreach (var declaringType in Context.Metadata.typeDefs)
+            foreach (var field in declaringType.Fields ?? [])
+                result[field] = declaringType;
+
+            return result;
+        });
+
+        return declaringTypes[fieldDefinition];
     }
 
     public Il2CppType? GetTypeFromDefinition(Il2CppTypeDefinition definition)

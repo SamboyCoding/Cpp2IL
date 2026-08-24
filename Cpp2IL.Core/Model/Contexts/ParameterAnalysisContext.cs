@@ -55,12 +55,40 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// </summary>
     public bool IsRef => ParameterType is ByRefTypeAnalysisContext || Attributes.HasFlag(ParameterAttributes.Out);
 
-    /// <summary>
-    /// The default value data for this parameter. Null if, and only if, the parameter has no default value. If it has a default value of literally null, this will be non-null and have a data index of -1.
-    /// </summary>
-    public Il2CppParameterDefaultValue? DefaultValue { get; }
+    public virtual object? OriginalDefaultValue
+    {
+        get
+        {
+            if (DefaultAttributes.HasFlag(ParameterAttributes.HasDefault))
+            {
+                var index = Il2CppVariableWidthIndex<Il2CppParameterDefinition>.MakeTemporaryForFixedWidthUsage(DeclaringMethod.Definition!.parameterStart.Value + ParameterIndex);
+                return AppContext.Metadata.GetParameterDefaultValueFromIndex(index)?.ContainedDefaultValue;
+            }
+            return null;
+        }
+    }
 
-    public virtual TypeAnalysisContext DefaultParameterType => DeclaringMethod.DeclaringType!.DeclaringAssembly.ResolveIl2CppType(Definition?.RawType) ?? throw new("Subclasses of ParameterAnalysisContext must provide a parameter type");
+    public virtual bool UseOverrideDefaultValue { get; set; } = false;
+    public virtual object? OverrideDefaultValue
+    {
+        get;
+        set
+        {
+            UseOverrideDefaultValue = true;
+            field = value;
+        }
+    }
+
+    /// <summary>
+    /// The default value data for this parameter.
+    /// </summary>
+    public object? DefaultValue
+    {
+        get => UseOverrideDefaultValue ? OverrideDefaultValue : OriginalDefaultValue;
+        set => OverrideDefaultValue = value;
+    }
+
+    public virtual TypeAnalysisContext DefaultParameterType => AppContext.ResolveIl2CppType(Definition?.RawType) ?? throw new("Subclasses of ParameterAnalysisContext must provide a parameter type");
 
     public TypeAnalysisContext? OverrideParameterType { get; set; }
 
@@ -79,11 +107,6 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
         if (Definition != null)
         {
             InitCustomAttributeData();
-
-            if (Attributes.HasFlag(ParameterAttributes.HasDefault))
-            {
-                DefaultValue = AppContext.Metadata.GetParameterDefaultValueFromIndex(Il2CppVariableWidthIndex<Il2CppParameterDefinition>.MakeTemporaryForFixedWidthUsage(declaringMethod.Definition!.parameterStart.Value + parameterIndex))!;
-            }
         }
     }
 
@@ -111,7 +134,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
 
         if (Attributes.HasFlag(ParameterAttributes.HasDefault))
         {
-            var defaultValue = DefaultValue!.ContainedDefaultValue;
+            var defaultValue = DefaultValue;
             if (defaultValue is string stringDefaultValue)
                 defaultValue = $"\"{stringDefaultValue}\"";
             else if (defaultValue is bool boolDefaultValue)

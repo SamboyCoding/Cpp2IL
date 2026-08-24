@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Cpp2IL.Core.Graphs;
 
@@ -13,10 +14,14 @@ public class DominatorInfo
 
     public DominatorInfo(ISILControlFlowGraph graph)
     {
+        // The post dominators are not actually used by anything.
+
         CalculateDominators(graph);
-        CalculatePostDominators(graph);
+        //CalculatePostDominators(graph);
+
         CalculateImmediateDominators(graph);
-        CalculateImmediatePostDominators(graph);
+        //CalculateImmediatePostDominators(graph);
+
         CalculateDominanceFrontiers(graph);
         BuildDominanceTree();
     }
@@ -25,8 +30,10 @@ public class DominatorInfo
     {
         if (a == b)
             return true;
-        if (Dominators.ContainsKey(b) && Dominators.ContainsKey(a))
-            return Dominators[b].Contains(a);
+
+        if (Dominators.TryGetValue(b, out var bDominators) && Dominators.ContainsKey(a))
+            return bDominators.Contains(a);
+
         return false;
     }
 
@@ -51,37 +58,66 @@ public class DominatorInfo
         // Entry block dominates itself, all others are initialized with all blocks
         foreach (var block in graph.Blocks)
         {
+            var dominators = new HashSet<Block>();
+
+#if NET5_0_OR_GREATER
+            dominators.EnsureCapacity(graph.Blocks.Count);
+#endif
+
             if (block == graph.EntryBlock)
-                Dominators[block] = [block];
+            {
+                dominators.Add(block);
+            }
             else
-                Dominators[block] = new HashSet<Block>(graph.Blocks);
+            {
+                foreach (var graphBlock in graph.Blocks)
+                    dominators.Add(graphBlock);
+            }
+
+            Dominators[block] = dominators;
         }
 
-        var changed = true;
+        var remaining = new Stack<Block>(graph.Blocks);
+        var tempDoms = new HashSet<Block>();
+
+#if NET5_0_OR_GREATER
+        tempDoms.EnsureCapacity(graph.Blocks.Count);
+#endif
 
         // Get dominators
-        while (changed)
+        while (remaining.Count > 0)
         {
-            changed = false;
+            var block = remaining.Pop();
 
-            foreach (var block in graph.Blocks)
+            if (block == graph.EntryBlock)
+                continue;
+
+            tempDoms.Clear();
+
+            if (block.Predecessors.Count != 0)
             {
-                if (block == graph.EntryBlock)
-                    continue;
-
-                var tempDoms = block.Predecessors.Count == 0
-                    ? new HashSet<Block>()
-                    : new HashSet<Block>(Dominators[block.Predecessors[0]]);
+                foreach (var predecessor in Dominators[block.Predecessors[0]])
+                    tempDoms.Add(predecessor);
 
                 for (var i = 1; i < block.Predecessors.Count; i++)
                     tempDoms.IntersectWith(Dominators[block.Predecessors[i]]);
+            }
 
-                tempDoms.Add(block);
+            tempDoms.Add(block);
 
-                if (!tempDoms.SetEquals(Dominators[block]))
+            // Given that all dominators can be at most the intersection of their predecessor dominators,
+            // there is no case in which an entirely new dominator gets added to a dominator set.
+            // this means that we do not have to compare all dominators by value; rather,
+            // we can just compare if the amount of dominators is the same, as the only way for that
+            // to be possible is for the same dominators to be in both sets.
+
+            if (tempDoms.Count != Dominators[block].Count)
+            {
+                (Dominators[block], tempDoms) = (tempDoms, Dominators[block]);
+
+                foreach (var successor in block.Successors)
                 {
-                    Dominators[block] = tempDoms;
-                    changed = true;
+                    remaining.Push(successor);
                 }
             }
         }
@@ -99,31 +135,29 @@ public class DominatorInfo
                 PostDominators[block] = new HashSet<Block>(graph.Blocks);
         }
 
-        var changed = true;
+        var remaining = new Stack<Block>(((IEnumerable<Block>)graph.Blocks).Reverse());
 
-        while (changed)
+        while (remaining.Count > 0)
         {
-            changed = false;
+            var block = remaining.Pop();
 
-            foreach (var block in graph.Blocks)
+            if (block.Successors.Count == 0 && block != graph.ExitBlock)
+                continue;
+
+            var tempPostDoms = block.Successors.Count == 0
+                ? new HashSet<Block>()
+                : new HashSet<Block>(PostDominators[block.Successors[0]]);
+
+            for (var i = 1; i < block.Successors.Count; i++)
+                tempPostDoms.IntersectWith(PostDominators[block.Successors[i]]);
+
+            tempPostDoms.Add(block);
+
+            if (!tempPostDoms.SetEquals(PostDominators[block]))
             {
-                if (block.Successors.Count == 0 && block != graph.ExitBlock)
-                    continue;
-
-                var tempPostDoms = block.Successors.Count == 0
-                    ? new HashSet<Block>()
-                    : new HashSet<Block>(PostDominators[block.Successors[0]]);
-
-                for (var i = 1; i < block.Successors.Count; i++)
-                    tempPostDoms.IntersectWith(PostDominators[block.Successors[i]]);
-
-                tempPostDoms.Add(block);
-
-                if (!tempPostDoms.SetEquals(PostDominators[block]))
-                {
-                    PostDominators[block] = tempPostDoms;
-                    changed = true;
-                }
+                PostDominators[block] = tempPostDoms;
+                foreach (var predecessor in block.Predecessors)
+                    remaining.Push(predecessor);
             }
         }
     }

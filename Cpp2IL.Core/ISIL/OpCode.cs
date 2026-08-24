@@ -65,6 +65,9 @@ public enum OpCode
     /// <summary>Divides op 2 by op 3, and moves the result into op 1</summary>
     Divide,
 
+    /// <summary>Divides op 2 by op 3, and moves the remainder into op 1</summary>
+    Modulo,
+
     /// <summary>Shifts the bits of op 2 left by op 3, and moves the result into op 1</summary>
     ShiftLeft,
 
@@ -107,5 +110,20 @@ public enum OpCode
     /// <summary>
     /// Allocates a new, uninitialized instance of the type described by op 2 and moves it into op 1.
     /// </summary>
-    Newobj
+    Newobj,
+
+    /// <summary>
+    /// Allocates a new array of the type described by op 2, with the length in op 3, into op 1.
+    /// </summary>
+    NewArr,
+
+    /// <summary>
+    /// Boxes the value at op 3 as the type described by op 2, and moves the result into op 1.
+    /// </summary>
+    Box,
+
+    /// <summary>
+    /// Throws a new instance of the exception type described by op 1.
+    /// </summary>
+    Throw
 }

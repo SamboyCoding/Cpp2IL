@@ -15,43 +15,56 @@ public static class FloatLiteralRecovery
     {
         foreach (var instruction in method.ControlFlowGraph!.Blocks.SelectMany(block => block.Instructions))
         {
-            if (instruction.OpCode != OpCode.Move || instruction.Operands.Count < 2)
-                continue;
-
-            if (instruction.Operands[0] is not FieldReference field)
-                continue;
-
-            if (!TryGetIntegerBits(instruction.Operands[1], out var bits))
-                continue;
-
-            // TODO FIXME: We have to compare by name, not reference, because a field on a generic type resolves
-            // TODO FIXME: to its own Single/Double context instance rather than the canonical one in SystemTypes.
-            switch (field.Field.FieldType.FullName)
-            {
-                case "System.Single" when !IsSubnormalSingle((uint)bits):
-                    instruction.Operands[1] = BitConverter.ToSingle(BitConverter.GetBytes((uint)bits), 0);
-                    break;
-                case "System.Double" when !IsSubnormalDouble(bits):
-                    instruction.Operands[1] = BitConverter.ToDouble(BitConverter.GetBytes(bits), 0);
-                    break;
-            }
+            if (instruction.OpCode == OpCode.Move && instruction.Operands is [FieldReference field, _])
+                TryConvert(instruction, 1, field.Field.FieldType);
+            else if (instruction.IsCall && instruction.Operands is [MethodAnalysisContext target, ..])
+                ConvertArguments(instruction, target);
         }
     }
 
-    private static bool TryGetIntegerBits(object operand, out ulong bits)
+    private static void ConvertArguments(Instruction call, MethodAnalysisContext target)
     {
-        switch (operand)
+        var firstArgument = (call.OpCode == OpCode.Call ? 2 : 1) + (target.IsStatic ? 0 : 1);
+
+        for (var i = 0; i < target.Parameters.Count; i++)
         {
-            case ulong v: bits = v; return true;
-            case long v: bits = unchecked((ulong)v); return true;
-            case uint v: bits = v; return true;
-            case int v: bits = unchecked((uint)v); return true;
-            case ushort v: bits = v; return true;
-            case short v: bits = unchecked((ushort)v); return true;
-            case byte v: bits = v; return true;
-            case sbyte v: bits = unchecked((byte)v); return true;
-            default: bits = 0; return false;
+            var index = firstArgument + i;
+
+            if (index >= call.Operands.Count)
+                break;
+
+            TryConvert(call, index, target.Parameters[i].ParameterType);
         }
+    }
+
+    private static void TryConvert(Instruction instruction, int operandIndex, TypeAnalysisContext type)
+    {
+        if (!TryGetIntegerBits(instruction.Operands[operandIndex], out var bits))
+            return;
+
+        // TODO FIXME: We have to compare by name, not reference, because a field on a generic type resolves
+        // TODO FIXME: to its own Single/Double context instance rather than the canonical one in SystemTypes.
+        switch (type.FullName)
+        {
+            case "System.Single" when !IsSubnormalSingle((uint)bits):
+                instruction.SetOperand(operandIndex, new FloatLiteral(BitConverter.ToSingle(BitConverter.GetBytes((uint)bits), 0)));
+                break;
+            case "System.Double" when !IsSubnormalDouble(bits):
+                instruction.SetOperand(operandIndex, new DoubleLiteral(BitConverter.ToDouble(BitConverter.GetBytes(bits), 0)));
+                break;
+        }
+    }
+
+    private static bool TryGetIntegerBits(IOperand operand, out ulong bits)
+    {
+        if (operand is Immediate immediate)
+        {
+            bits = immediate.UnsignedValue;
+            return true;
+        }
+
+        bits = 0;
+        return false;
     }
 
     // A subnormal has a zero exponent and a non-zero mantissa (zero itself is exempt). Real source

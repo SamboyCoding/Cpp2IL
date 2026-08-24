@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using AsmResolver.DotNet;
 using AsmResolver.DotNet.Signatures;
 using AsmResolver.PE.DotNet.Cil;
@@ -21,6 +22,19 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
 
     public override string OutputFormatName => "DLL files with IL Recovery";
 
+    public override List<AssemblyDefinition> BuildAssemblies(ApplicationAnalysisContext context)
+    {
+        //We're going to need key function addresses, so grab them. This way the logging is more consistent
+        Logger.InfoNewline("Finding key function addresses...");
+        var start = DateTime.Now;
+        _ = context.GetOrCreateKeyFunctionAddresses();
+        Logger.InfoNewline($"Key function addresses found in {DateTime.Now.Subtract(start).TotalMilliseconds}ms");
+
+        IlGenerator.InjectHelpersType(context);
+
+        return base.BuildAssemblies(context);
+    }
+
     protected override void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext)
     {
         var module = methodDefinition.DeclaringModule!;
@@ -28,7 +42,6 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
         var shouldSkip = moduleName.StartsWith("UnityEngine.") || moduleName.StartsWith("Unity.") ||
                          moduleName.StartsWith("System.") || moduleName == "System" ||
                          moduleName.StartsWith("mscorlib");
-        var importer = new ReferenceImporter(module);
 
         if (!methodDefinition.IsManagedMethodWithBody())
             return;
@@ -38,24 +51,24 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
 
         if (shouldSkip)
         {
-            methodDefinition.ReplaceMethodBodyWithMinimalImplementation();
+            FillMethodBodyWithStub(methodDefinition);
             return;
         }
 
         try
         {
-            TotalMethodCount++;
+            Interlocked.Increment(ref TotalMethodCount);
 
             methodContext.Analyze();
 
             if (methodContext.ConvertedIsil.Count == 0)
-                methodDefinition.ReplaceMethodBodyWithMinimalImplementation();
+                FillMethodBodyWithStub(methodDefinition);
             else
                 IlGenerator.GenerateIl(methodContext, methodDefinition);
 
             //WriteControlFlowGraph(methodContext, Path.Combine(Environment.CurrentDirectory, "Cpp2IL", "bin", "Debug", "net9.0", "cpp2il_out", "cfg"));
 
-            SuccessfulMethodCount++;
+            Interlocked.Increment(ref SuccessfulMethodCount);
         }
         catch (Exception e)
         {
@@ -63,17 +76,21 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
             // else is an unexpected bug and keeps its (collapsed) stack trace.
             var detail = e is DecompilerException ? e.Message : e.ToCollapsedString();
 
+            if (detail.Length > 1000) // unbounded ldstrs can overflow the 24 bit #US heap offset space
+                detail = detail[..1000] + "…";
+
             if (e is DecompilerException)
                 Logger.WarnNewline($"Skipping {methodContext.FullName}: {e.Message}");
             else
                 Logger.ErrorNewline($"Decompiling {methodContext.FullName} failed: {detail}");
+            
+            methodDefinition.CilMethodBody = new();
+            instructions = methodDefinition.CilMethodBody.Instructions;
 
-            // throw new Exception(detail);
             var factory = module.CorLibTypeFactory;
             var exceptionCtor = factory.CorLibScope
                 .CreateTypeReference("System", "Exception")
-                .CreateMemberReference(".ctor", MethodSignature.CreateInstance(factory.Void, [factory.String]))
-                .ImportWith(importer);
+                .CreateMemberReference(".ctor", MethodSignature.CreateInstance(factory.Void, [factory.String]));
 
             instructions.Add(CilOpCodes.Ldstr, detail);
             instructions.Add(CilOpCodes.Newobj, exceptionCtor);

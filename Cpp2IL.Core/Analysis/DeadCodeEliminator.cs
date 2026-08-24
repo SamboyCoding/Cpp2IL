@@ -47,7 +47,7 @@ public static class DeadCodeEliminator
                         continue;
 
                     instruction.OpCode = OpCode.Nop;
-                    instruction.Operands = [];
+                    instruction.SetOperands();
                     changed = true;
                 }
             }
@@ -88,11 +88,36 @@ public static class DeadCodeEliminator
                     if (memory.Index is LocalVariable indexLocal)
                         yield return indexLocal;
                     break;
-                case FieldReference field when field.Local is { } fieldLocal:
+                // A static field access doesn't read the storage pointer it was resolved from, so that
+                // pointer (and the class load feeding it) is free to die.
+                case FieldReference { Field.IsStatic: false, Local: { } fieldLocal }:
                     yield return fieldLocal;
+                    break;
+                // Handing out a slot's address is a read of it as far as we can tell, whatever the callee then does with it.
+                case AddressOf { Target: LocalVariable addressed }:
+                    yield return addressed;
+                    break;
+                case AddressOf { Target: ArrayAccess addressedElement }:
+                    foreach (var used in ArrayAccessLocals(addressedElement))
+                        yield return used;
+                    break;
+                case ArrayAccess access:
+                    foreach (var used in ArrayAccessLocals(access))
+                        yield return used;
+                    break;
+                case ArrayLength { Array: { } lengthArray }:
+                    yield return lengthArray;
                     break;
             }
         }
+    }
+
+    private static IEnumerable<LocalVariable> ArrayAccessLocals(ArrayAccess access)
+    {
+        yield return access.Array;
+
+        if (access.Index is LocalVariable index)
+            yield return index;
     }
 
     /// <summary>
@@ -103,7 +128,7 @@ public static class DeadCodeEliminator
         opCode switch
         {
             OpCode.Move or OpCode.Phi
-                or OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide
+                or OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide or OpCode.Modulo
                 or OpCode.ShiftLeft or OpCode.ShiftRight
                 or OpCode.And or OpCode.Or or OpCode.Xor
                 or OpCode.Not or OpCode.Negate=> true,

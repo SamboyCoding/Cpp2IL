@@ -5,14 +5,14 @@ using Cpp2IL.Core.ISIL;
 
 namespace Cpp2IL.Core.Graphs;
 
-public class Block
+public class Block : ISIL.IOperand
 {
     public BlockType BlockType { get; set; } = BlockType.Unknown;
     public List<Block> Predecessors = [];
     public List<Block> Successors = [];
 
-    public List<object> Use = [];
-    public List<object> Def = [];
+    public List<IOperand> Use = [];
+    public List<IOperand> Def = [];
 
     public List<Instruction> Instructions = [];
 
@@ -47,7 +47,7 @@ public class Block
         {
             OpCode.Jump => BlockType.OneWay,
             OpCode.ConditionalJump => BlockType.TwoWay,
-            OpCode.IndirectJump => BlockType.NWay,
+            OpCode.IndirectJump => BlockType.TailCall, //TODO this is wrong for switch statements but that's better than tail calls to virtual methods stopping the stack settling
             OpCode.Call or OpCode.CallVoid => BlockType.Call,
             OpCode.Return => BlockType.Return,
             _ => BlockType.Fall,

@@ -36,7 +36,7 @@ public class AttributeAnalysisProcessingLayer : Cpp2IlProcessingLayer
         }
     }
 
-    private void AnalyzeAndRaise(HasCustomAttributes toAnalyze, ref int count, int total, Action<int, int>? progressCallback)
+    private static void AnalyzeAndRaise(HasCustomAttributes toAnalyze, ref int count, int total, Action<int, int>? progressCallback)
     {
         toAnalyze.AnalyzeCustomAttributeData();
         count++;

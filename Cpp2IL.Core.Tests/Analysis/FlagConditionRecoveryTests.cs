@@ -29,7 +29,7 @@ public class FlagConditionRecoveryTests
 
         // The conditional jump's target (operand 0) is the last instruction's index.
         var conditionalJump = instructions.First(i => i.OpCode == OpCode.ConditionalJump);
-        conditionalJump.Operands[0] = instructions[index + 1];
+        conditionalJump.SetOperand(0, instructions[index + 1]);
 
         var graph = new ISILControlFlowGraph(instructions);
         FlagConditionRecovery.Run(graph);
@@ -48,8 +48,8 @@ public class FlagConditionRecoveryTests
         var def = RecoverAndGetConditionDef(new List<Instruction>
         {
             new(0, OpCode.Subtract, t1, A, B),
-            new(1, OpCode.CheckEqual, zf, t1, 0),
-            new(2, OpCode.ConditionalJump, 0, zf),
+            new(1, OpCode.CheckEqual, zf, t1, Imm(0)),
+            new(2, OpCode.ConditionalJump, Imm(0), zf),
         }, zf);
 
         Assert.That(def.OpCode, Is.EqualTo(OpCode.CheckEqual));
@@ -68,9 +68,9 @@ public class FlagConditionRecoveryTests
         var def = RecoverAndGetConditionDef(new List<Instruction>
         {
             new(0, OpCode.Subtract, t1, A, B),
-            new(1, OpCode.CheckEqual, zf, t1, 0),
+            new(1, OpCode.CheckEqual, zf, t1, Imm(0)),
             new(2, OpCode.Not, cond, zf),
-            new(3, OpCode.ConditionalJump, 0, cond),
+            new(3, OpCode.ConditionalJump, Imm(0), cond),
         }, cond);
 
         Assert.That(def.OpCode, Is.EqualTo(OpCode.CheckNotEqual));
@@ -97,11 +97,11 @@ public class FlagConditionRecoveryTests
             new(1, OpCode.Xor, t2, A, B),
             new(2, OpCode.Xor, t3, A, t1),
             new(3, OpCode.And, t4, t2, t3),
-            new(4, OpCode.CheckLess, of, t4, 0),
-            new(5, OpCode.CheckLess, sf, t1, 0),
+            new(4, OpCode.CheckLess, of, t4, Imm(0)),
+            new(5, OpCode.CheckLess, sf, t1, Imm(0)),
             new(6, OpCode.CheckEqual, sfEqOf, sf, of),
             new(7, OpCode.Not, cond, sfEqOf),
-            new(8, OpCode.ConditionalJump, 0, cond),
+            new(8, OpCode.ConditionalJump, Imm(0), cond),
         }, cond);
 
         Assert.That(def.OpCode, Is.EqualTo(OpCode.CheckLess));
@@ -127,10 +127,10 @@ public class FlagConditionRecoveryTests
             new(1, OpCode.Xor, t2, A, B),
             new(2, OpCode.Xor, t3, A, t1),
             new(3, OpCode.And, t4, t2, t3),
-            new(4, OpCode.CheckLess, of, t4, 0),
-            new(5, OpCode.CheckLess, sf, t1, 0),
+            new(4, OpCode.CheckLess, of, t4, Imm(0)),
+            new(5, OpCode.CheckLess, sf, t1, Imm(0)),
             new(6, OpCode.CheckEqual, cond, sf, of),
-            new(7, OpCode.ConditionalJump, 0, cond),
+            new(7, OpCode.ConditionalJump, Imm(0), cond),
         }, cond);
 
         Assert.That(def.OpCode, Is.EqualTo(OpCode.CheckGreaterOrEqual));
@@ -145,8 +145,8 @@ public class FlagConditionRecoveryTests
         var cond = Flag("someBool");
         var def = RecoverAndGetConditionDef(new List<Instruction>
         {
-            new(0, OpCode.Move, cond, 1),
-            new(1, OpCode.ConditionalJump, 0, cond),
+            new(0, OpCode.Move, cond, Imm(1)),
+            new(1, OpCode.ConditionalJump, Imm(0), cond),
         }, cond);
 
         Assert.That(def.OpCode, Is.EqualTo(OpCode.Move));

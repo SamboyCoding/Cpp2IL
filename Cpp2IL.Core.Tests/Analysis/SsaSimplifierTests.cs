@@ -26,14 +26,14 @@ public class SsaSimplifierTests
         // t1 := 5; t2 := t1; f(t2)  ==>  f(5), both moves dead.
         var live = Run(new List<Instruction>
         {
-            new(0, OpCode.Move, t1, 5),
+            new(0, OpCode.Move, t1, Imm(5)),
             new(1, OpCode.Move, t2, t1),
-            new(2, OpCode.CallVoid, "f", t2, 0),
+            new(2, OpCode.CallVoid, Str("f"), t2, Imm(0)),
             new(3, OpCode.Return),
         });
 
         var call = live.Single(i => i.OpCode == OpCode.CallVoid);
-        Assert.That(call.Operands[1], Is.EqualTo(5), "the constant should be forwarded all the way to the use");
+        Assert.That(call.Operands[1], Is.EqualTo(Imm(5)), "the constant should be forwarded all the way to the use");
 
         var remainingMoves = live.Where(i => i.OpCode == OpCode.Move).ToList();
         Assert.That(remainingMoves, Is.Empty, "both copies become dead once their value is forwarded");
@@ -49,7 +49,7 @@ public class SsaSimplifierTests
         var live = Run(new List<Instruction>
         {
             new(0, OpCode.Move, x, new MemoryOperand(baseLocal, null, 8, 0)),
-            new(1, OpCode.CallVoid, "f", x, 0),
+            new(1, OpCode.CallVoid, Str("f"), x, Imm(0)),
             new(2, OpCode.Return),
         });
 
@@ -72,7 +72,7 @@ public class SsaSimplifierTests
         {
             new(0, OpCode.Move, p, q),
             new(1, OpCode.Move, x, new MemoryOperand(p, null, 8, 0)),
-            new(2, OpCode.CallVoid, "f", x, 0),
+            new(2, OpCode.CallVoid, Str("f"), x, Imm(0)),
             new(3, OpCode.Return),
         });
 
@@ -94,7 +94,7 @@ public class SsaSimplifierTests
         var live = Run(new List<Instruction>
         {
             new(0, OpCode.Move, arg, p),
-            new(1, OpCode.CallVoid, "f", arg, 0),
+            new(1, OpCode.CallVoid, Str("f"), arg, Imm(0)),
             new(2, OpCode.Return),
         }, p);
 

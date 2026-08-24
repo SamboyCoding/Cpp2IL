@@ -30,12 +30,111 @@ public class SsaForm
 
     public static void Build(ISILControlFlowGraph graph, DominatorInfo dominatorInfo)
     {
-        graph.BuildUseDefLists();
-
         var ssa = new SsaForm();
+        ssa.FindClobberingAddressTakes(graph);
+
+        graph.BuildUseDefLists(ssa._clobbering);
+
         ssa.CollectRegisters(graph);
         ssa.InsertPhiFunctions(graph, dominatorInfo);
         ssa.Rename(graph.EntryBlock, dominatorInfo);
+    }
+
+    // The address-takes whose slot is read again afterwards, and so have to be treated as definitions.
+    private readonly HashSet<Instruction> _clobbering = [];
+
+    private void FindClobberingAddressTakes(ISILControlFlowGraph graph)
+    {
+        foreach (var block in graph.Blocks)
+        {
+            for (var i = 0; i < block.Instructions.Count; i++)
+            {
+                var instruction = block.Instructions[i];
+
+                foreach (var operand in instruction.Operands)
+                {
+                    if (operand is AddressOf { Target: Register addressed } && IsReadAfter(block, i, addressed))
+                        _clobbering.Add(instruction);
+                }
+            }
+        }
+    }
+
+    private static bool IsReadAfter(Block block, int index, Register register)
+    {
+        if (ScanForRead(block, index + 1, register, out var continuePastBlock))
+            return true;
+
+        if (!continuePastBlock)
+            return false;
+
+        var visited = new HashSet<Block>();
+        var queue = new Queue<Block>(block.Successors);
+
+        while (queue.Count > 0)
+        {
+            var reachable = queue.Dequeue();
+
+            if (!visited.Add(reachable))
+                continue;
+
+            if (ScanForRead(reachable, 0, register, out var keepGoing))
+                return true;
+
+            if (!keepGoing)
+                continue;
+
+            foreach (var successor in reachable.Successors)
+                queue.Enqueue(successor);
+        }
+
+        return false;
+    }
+
+    // Scans a block from an index. Reports whether the register is read, and whether the paths beyond
+    // this block are still worth following (they aren't once something has reassigned it).
+    private static bool ScanForRead(Block block, int from, Register register, out bool continuePastBlock)
+    {
+        continuePastBlock = true;
+
+        for (var i = from; i < block.Instructions.Count; i++)
+        {
+            var instruction = block.Instructions[i];
+
+            if (Reads(instruction, register))
+                return true;
+
+            if (instruction.Destination is Register defined && defined.Number == register.Number)
+            {
+                continuePastBlock = false;
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    // A plain read of the register's value. The address-takes themselves don't count.
+    private static bool Reads(Instruction instruction, Register register)
+    {
+        for (var i = 0; i < instruction.Operands.Count; i++)
+        {
+            if (i == 0 && instruction.Destination is Register)
+                continue;
+
+            var reads = instruction.Operands[i] switch
+            {
+                Register other => other.Number == register.Number,
+                MemoryOperand memory => (memory.Base as Register?)?.Number == register.Number
+                    || (memory.Index as Register?)?.Number == register.Number,
+                _ => false
+            };
+
+            if (reads)
+                return true;
+        }
+
+        return false;
     }
 
     private void CollectRegisters(ISILControlFlowGraph graph)
@@ -48,10 +147,15 @@ public class SsaForm
 
     private static IEnumerable<Register> EnumerateRegisters(Instruction instruction)
     {
+        if (instruction.ImplicitDefinition is { } clobbered)
+            yield return clobbered;
+
         foreach (var operand in instruction.Operands)
         {
             if (operand is Register register)
                 yield return register;
+            else if (operand is AddressOf { Target: Register addressed })
+                yield return addressed;
             else if (operand is MemoryOperand memory)
             {
                 if (memory.Base is Register baseRegister)
@@ -128,55 +232,83 @@ public class SsaForm
     {
         var register = _repr[regNumber];
 
-        var operands = new object[1 + block.Predecessors.Count];
-        operands[0] = register; // destination
+        var operands = new List<IOperand>(1 + block.Predecessors.Count) { register }; // destination first
         for (var i = 0; i < block.Predecessors.Count; i++)
-            operands[1 + i] = register; // one source per predecessor, filled in during renaming
+            operands.Add(register); // one source per predecessor, filled in during renaming
 
         block.Instructions.Insert(0, new Instruction(-1, OpCode.Phi, operands));
     }
 
-    private void Rename(Block block, DominatorInfo dominance)
+    private void Rename(Block initialBlock, DominatorInfo dominance)
     {
-        // Register numbers newly defined in this block, so we can pop their versions on the way out.
-        var definedHere = new List<int>();
+        var remaining = new Stack<(Stack<Block>, List<int>)>();
+        remaining.Push((new Stack<Block>([initialBlock]), []));
 
-        foreach (var instruction in block.Instructions)
+        while (remaining.Count > 0)
         {
-            // A phi's operands belong to the incoming edges, so they are filled by predecessors;
-            // only its destination is renamed here.
-            if (instruction.OpCode != OpCode.Phi)
-                RewriteUses(instruction);
-
-            if (instruction.Destination is Register definition)
-                instruction.Destination = NewName(definition, definedHere);
-        }
-
-        // Resolve the phi operands of successors that correspond to this block's outgoing edge.
-        foreach (var successor in block.Successors)
-        {
-            var predIndex = successor.Predecessors.IndexOf(block);
-            if (predIndex < 0)
-                continue;
-
-            foreach (var phi in successor.Instructions)
+            var (blocks, parentDefinedRegisters) = remaining.Pop();
+            if (blocks.Count == 0)
             {
-                if (phi.OpCode != OpCode.Phi)
+                // Leaving the block: pop the versions it defined.
+                foreach (var regNumber in parentDefinedRegisters)
+                    _stacks[regNumber].Pop();
+
+                continue;
+            }
+
+            var block = blocks.Pop();
+            remaining.Push((blocks, parentDefinedRegisters));
+
+            // Register numbers newly defined in this block, so we can pop their versions on the way out.
+            var definedHere = new List<int>();
+
+            foreach (var instruction in block.Instructions)
+            {
+                // A phi's operands belong to the incoming edges, so they are filled by predecessors;
+                // only its destination is renamed here.
+                if (instruction.OpCode != OpCode.Phi)
+                    RewriteUses(instruction);
+
+                if (instruction.Destination is Register definition)
+                    instruction.Destination = NewName(definition, definedHere);
+
+                // Nothing to write the new version back into, but taking it off the stack is the point: reads
+                // after this one can't reach back past the call
+                if (instruction.ImplicitDefinition is { } clobbered)
+                    instruction.ImplicitDefinition = NewName(clobbered, definedHere);
+
+                for (var i = 0; i < instruction.Operands.Count; i++)
+                {
+                    // Taking a slot's address lets the callee assign it, so the slot stops holding anything that reached this point, UNLESS
+                    // nothing reads it afterwards, in which case any write is unobservable and the callee is only reading the value it has now
+                    if (instruction.Operands[i] is AddressOf { Target: Register addressed })
+                        instruction.SetOperand(i, new AddressOf(_clobbering.Contains(instruction)
+                            ? NewName(addressed, definedHere)
+                            : CurrentVersion(addressed.Number)));
+                }
+            }
+
+            // Resolve the phi operands of successors that correspond to this block's outgoing edge.
+            foreach (var successor in block.Successors)
+            {
+                var predIndex = successor.Predecessors.IndexOf(block);
+                if (predIndex < 0)
                     continue;
 
-                var regNumber = ((Register)phi.Operands[0]).Number;
-                phi.Operands[1 + predIndex] = CurrentVersion(regNumber);
+                foreach (var phi in successor.Instructions)
+                {
+                    if (phi.OpCode != OpCode.Phi)
+                        continue;
+
+                    var regNumber = ((Register)phi.Operands[0]).Number;
+                    phi.SetOperand(1 + predIndex, CurrentVersion(regNumber));
+                }
             }
+
+            // Recurse over the dominator tree.
+            dominance.DominanceTree.TryGetValue(block, out var children);
+            remaining.Push((new Stack<Block>(children ?? []), definedHere));
         }
-
-        // Recurse over the dominator tree.
-        if (dominance.DominanceTree.TryGetValue(block, out var children))
-            foreach (var child in children)
-                Rename(child, dominance);
-
-        // Leaving the block: pop the versions it defined.
-        foreach (var regNumber in definedHere)
-            _stacks[regNumber].Pop();
     }
 
     private void RewriteUses(Instruction instruction)
@@ -187,7 +319,7 @@ public class SsaForm
 
             if (operand is Register register)
             {
-                instruction.Operands[i] = CurrentVersion(register.Number);
+                instruction.SetOperand(i, CurrentVersion(register.Number));
             }
             else if (operand is MemoryOperand memory)
             {
@@ -196,7 +328,7 @@ public class SsaForm
                 if (memory.Index is Register indexRegister)
                     memory.Index = CurrentVersion(indexRegister.Number);
 
-                instruction.Operands[i] = memory; // MemoryOperand is a struct, write the copy back
+                instruction.SetOperand(i, memory); // MemoryOperand is a struct, write the copy back
             }
         }
     }
@@ -276,7 +408,7 @@ public class SsaForm
             foreach (var phi in phiInstructions)
             {
                 phi.OpCode = OpCode.Nop;
-                phi.Operands = [];
+                phi.SetOperands();
             }
         }
 

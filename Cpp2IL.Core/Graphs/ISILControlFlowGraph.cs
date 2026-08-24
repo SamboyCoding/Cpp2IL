@@ -178,7 +178,7 @@ public class ISILControlFlowGraph
                 for (var i = 0; i < instr.Operands.Count; i++)
                 {
                     if (instr.Operands[i] is Instruction target && instructionReplacement.TryGetValue(target, out var newTarget))
-                        instr.Operands[i] = newTarget;
+                        instr.SetOperand(i, newTarget);
                 }
             }
         }
@@ -201,9 +201,20 @@ public class ISILControlFlowGraph
 
             if (block.Instructions.Count == 0)
             {
+                // jumps into the removed block must be retargeted, which needs an unambiguous successor
+                if (block.Successors.Count != 1 && HasJumpOperandTo(block))
+                    continue;
+
+                var jumpTarget = block.Successors.Count == 1 ? block.Successors[0] : null;
+
                 // Redirect predecessors to successors
                 foreach (var pred in block.Predecessors)
                 {
+                    if (pred.Instructions.Count > 0
+                        && pred.Instructions[^1] is { OpCode: OpCode.Jump or OpCode.ConditionalJump } jump
+                        && ReferenceEquals(jump.Operands[0], block))
+                        jump.SetOperand(0, jumpTarget!);
+
                     pred.Successors.Remove(block);
                     foreach (var succ in block.Successors)
                     {
@@ -231,12 +242,17 @@ public class ISILControlFlowGraph
             Blocks.Remove(block);
     }
 
-    public void BuildUseDefLists()
+    private bool HasJumpOperandTo(Block block) =>
+        block.Predecessors.Any(pred => pred.Instructions.Count > 0
+            && pred.Instructions[^1] is { OpCode: OpCode.Jump or OpCode.ConditionalJump } jump
+            && ReferenceEquals(jump.Operands[0], block));
+
+    public void BuildUseDefLists(HashSet<Instruction>? clobberingAddressTakes = null)
     {
         foreach (var block in Blocks)
         {
-            var use = new List<object>();
-            var def = new List<object>();
+            var use = new List<IOperand>();
+            var def = new List<IOperand>();
 
             foreach (var instruction in block.Instructions)
             {
@@ -245,6 +261,16 @@ public class ISILControlFlowGraph
 
                 if (instruction.Destination != null && !def.Contains(instruction.Destination))
                     def.Add(instruction.Destination);
+
+                if (instruction.ImplicitDefinition is { } clobbered && !def.Contains(clobbered))
+                    def.Add(clobbered);
+
+                if (clobberingAddressTakes?.Contains(instruction) == true)
+                {
+                    foreach (var operand in instruction.Operands)
+                        if (operand is AddressOf { Target: { } addressed } && !def.Contains(addressed))
+                            def.Add(addressed);
+                }
             }
 
             block.Use = use;
@@ -313,6 +339,7 @@ public class ISILControlFlowGraph
             {
                 case OpCode.Jump:
                 case OpCode.ConditionalJump:
+                case OpCode.IndirectJump:
                     currentBlock.AddInstruction(instructions[i]);
 
                     if (!isLast)
@@ -320,7 +347,7 @@ public class ISILControlFlowGraph
                         newBlock = new Block() { ID = idCounter++ };
                         AddBlock(newBlock);
 
-                        if (instructions[i].OpCode == OpCode.Jump)
+                        if (instructions[i].OpCode is OpCode.Jump or OpCode.IndirectJump)
                         {
                             if (TryGetTargetJumpInstructionIndex(instructions[i], out int jumpTargetIndex))
                                 currentBlock.Dirty = true;
@@ -398,7 +425,7 @@ public class ISILControlFlowGraph
         foreach (var instruction in Blocks.SelectMany(block => block.Instructions))
         {
             if (instruction.Operands.Count > 0 && instruction.Operands[0] is Instruction target)
-                instruction.Operands[0] = FindBlockByInstruction(target)!;
+                instruction.SetOperand(0, FindBlockByInstruction(target)!);
         }
     }
 

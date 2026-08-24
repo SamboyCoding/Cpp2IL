@@ -145,6 +145,19 @@ public class Il2CppTypeDefinition : ReadableClass
                 return OwningContext.Metadata.RgctxDefinitions!.Skip(RgctxStartIndex).Take(RgctxCount).ToArray();
             }
 
+            if (MetadataVersion >= 108)
+            {
+                //Back in the metadata, ranges are per-image and their starts are global into the values table
+                var metadata = OwningContext.Metadata;
+                var image = DeclaringAssembly!;
+                var range = metadata.RgctxRanges!.Skip(image.rgctxRangesStart).Take((int)image.rgctxRangesCount).FirstOrDefault(r => r.token == Token);
+
+                if (range == null)
+                    return [];
+
+                return metadata.RgctxValues!.SubArray(range.start, range.length);
+            }
+
             var cgm = CodeGenModule;
 
             if (cgm == null)

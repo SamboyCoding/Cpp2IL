@@ -7,7 +7,7 @@
         <Description>Reverses Unity's IL2CPP Build Process</Description>
         <EmbedUntrackedSources>true</EmbedUntrackedSources>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <LangVersion>13</LangVersion>
+        <LangVersion>14</LangVersion>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <PackageId>Samboy063.Cpp2IL.Core</PackageId>
@@ -40,11 +40,11 @@
 
     <ItemGroup>
         <!--Needed for DLL output-->
-        <PackageReference Include="AsmResolver.DotNet" Version="6.0.0" />
-        <PackageReference Include="AssetRipper.CIL" Version="1.3.1" />
+        <PackageReference Include="AsmResolver.DotNet" Version="6.0.1" />
+        <PackageReference Include="AssetRipper.CIL" Version="1.3.2" />
         
         <!--For ARM64 dissassembly-->
-        <PackageReference Include="Disarm" Version="2022.1.0-master.99" />
+        <PackageReference Include="Disarm" Version="2022.1.0-master.117" />
 
         <!--For X86/X64 disassembly-->
         <PackageReference Include="Iced" Version="1.21.0" />
@@ -53,7 +53,7 @@
         <PackageReference Include="AssetRipper.Gee.External.Capstone" Version="2.3.2" />
         
         <!--Not used at runtime, but needed for the build-->
-        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.300" PrivateAssets="All" />
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.400" PrivateAssets="All" />
 
         <PackageReference Include="PolySharp" Version="1.16.0" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
     </ItemGroup>

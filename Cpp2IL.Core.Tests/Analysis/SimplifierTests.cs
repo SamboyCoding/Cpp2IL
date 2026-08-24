@@ -30,15 +30,15 @@ public class SimplifierTests
 
         var instructions = new List<Instruction>
         {
-            new(0, OpCode.CheckNotEqual, cond, x, 1),
-            new(1, OpCode.ConditionalJump, 5, cond),
-            new(2, OpCode.Move, oddText, "Odd second"),
+            new(0, OpCode.CheckNotEqual, cond, x, Imm(1)),
+            new(1, OpCode.ConditionalJump, Imm(5), cond),
+            new(2, OpCode.Move, oddText, Str("Odd second")),
             new(3, OpCode.Move, selected, oddText),
-            new(4, OpCode.Jump, 8),
-            new(5, OpCode.Move, evenText, "Even second"),
+            new(4, OpCode.Jump, Imm(8)),
+            new(5, OpCode.Move, evenText, Str("Even second")),
             new(6, OpCode.Move, selected, evenText),
-            new(7, OpCode.Jump, 8),
-            new(8, OpCode.CallVoid, "Console.WriteLine", selected, 0),
+            new(7, OpCode.Jump, Imm(8)),
+            new(8, OpCode.CallVoid, Str("Console.WriteLine"), selected, Imm(0)),
             new(9, OpCode.Return),
         };
 
@@ -47,7 +47,7 @@ public class SimplifierTests
             if (instruction.OpCode is not (OpCode.Jump or OpCode.ConditionalJump))
                 continue;
 
-            instruction.Operands[0] = instructions[(int)instruction.Operands[0]];
+            instruction.SetOperand(0, instructions[(int)((Immediate)instruction.Operands[0]).Value]);
         }
 
         var graph = new ISILControlFlowGraph(instructions);
@@ -59,7 +59,7 @@ public class SimplifierTests
         var selectedDefinitions = live.Where(i => i.OpCode == OpCode.Move && ReferenceEquals(i.Destination, selected)).ToList();
         Assert.That(selectedDefinitions.Count, Is.EqualTo(2), "both branch assignments to selected must remain");
 
-        var writeLineCall = live.Single(i => i.OpCode == OpCode.CallVoid && i.Operands[0] is "Console.WriteLine");
+        var writeLineCall = live.Single(i => i.OpCode == OpCode.CallVoid && i.Operands[0] is StringLiteral { Value: "Console.WriteLine" });
         Assert.That(ReferenceEquals(writeLineCall.Operands[1], selected), Is.True,
             "join-point call must keep the selected local, not a branch-specific constant");
     }
@@ -75,9 +75,9 @@ public class SimplifierTests
         var instructions = new List<Instruction>
         {
             new(0, OpCode.Move, aLocal, new MemoryOperand(null, null, 0xAAAA, 0)),
-            new(1, OpCode.CallVoid, "f", aLocal, 0),
+            new(1, OpCode.CallVoid, Str("f"), aLocal, Imm(0)),
             new(2, OpCode.Move, bLocal, new MemoryOperand(null, null, 0xBBBB, 0)),
-            new(3, OpCode.CallVoid, "g", bLocal, 0),
+            new(3, OpCode.CallVoid, Str("g"), bLocal, Imm(0)),
             new(4, OpCode.Return),
         };
 
@@ -88,13 +88,13 @@ public class SimplifierTests
 
         var live = graph.Blocks.SelectMany(b => b.Instructions).ToList();
 
-        var gCall = live.Single(i => i.OpCode == OpCode.CallVoid && i.Operands[0] is "g");
+        var gCall = live.Single(i => i.OpCode == OpCode.CallVoid && i.Operands[0] is StringLiteral { Value: "g" });
         Assert.That(gCall.Operands[1], Is.InstanceOf<MemoryOperand>());
         Assert.That(((MemoryOperand)gCall.Operands[1]).Addend, Is.EqualTo(0xBBBBL),
             "an unrelated constant address must not be rewritten by another inline");
 
         // The intended inline still happens.
-        var fCall = live.Single(i => i.OpCode == OpCode.CallVoid && i.Operands[0] is "f");
+        var fCall = live.Single(i => i.OpCode == OpCode.CallVoid && i.Operands[0] is StringLiteral { Value: "f" });
         Assert.That(fCall.Operands[1], Is.InstanceOf<MemoryOperand>());
         Assert.That(((MemoryOperand)fCall.Operands[1]).Addend, Is.EqualTo(0xAAAAL));
     }
@@ -112,7 +112,7 @@ public class SimplifierTests
         {
             new(0, OpCode.Move, x, y),
             new(1, OpCode.Move, z, new MemoryOperand(x, null, 0, 0)),
-            new(2, OpCode.CallVoid, "f", z, 0),
+            new(2, OpCode.CallVoid, Str("f"), z, Imm(0)),
             new(3, OpCode.Return),
         };
 

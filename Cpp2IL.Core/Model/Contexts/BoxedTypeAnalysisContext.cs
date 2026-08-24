@@ -3,11 +3,11 @@ using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
-public class BoxedTypeAnalysisContext(TypeAnalysisContext elementType, AssemblyAnalysisContext referencedFrom)
-    : WrappedTypeAnalysisContext(elementType, referencedFrom)
+public class BoxedTypeAnalysisContext(TypeAnalysisContext elementType)
+    : WrappedTypeAnalysisContext(elementType)
 {
-    public BoxedTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
-        : this(referencedFrom.ResolveIl2CppType(rawType.GetEncapsulatedType()), referencedFrom)
+    public BoxedTypeAnalysisContext(Il2CppType rawType, ApplicationAnalysisContext context)
+        : this(context.ResolveIl2CppType(rawType.GetEncapsulatedType()))
     {
     }
 

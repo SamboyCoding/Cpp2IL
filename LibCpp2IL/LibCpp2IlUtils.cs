@@ -88,21 +88,6 @@ public static class LibCpp2ILUtils
         return ret;
     }
 
-    internal static Il2CppTypeReflectionData[] GetGenericTypeParams(Il2CppGenericInst genericInst)
-    {
-        var binary = genericInst.OwningContext.Binary;
-
-        var types = new Il2CppTypeReflectionData[genericInst.pointerCount];
-        var pointers = binary.ReadNUintArrayAtVirtualAddress(genericInst.pointerStart, (long)genericInst.pointerCount);
-        for (uint i = 0; i < genericInst.pointerCount; ++i)
-        {
-            var oriType = binary.GetIl2CppTypeFromPointer(pointers[i]);
-            types[i] = GetTypeReflectionData(oriType);
-        }
-
-        return types;
-    }
-
     internal static string GetGenericTypeParamNames(LibCpp2IlContext context, Il2CppGenericInst genericInst)
     {
         var typeNames = genericInst.Types.Select(t => GetTypeName(context, t)).ToArray();

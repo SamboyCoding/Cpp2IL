@@ -19,8 +19,8 @@ public class DeadCodeEliminationTests
 
         var graph = new ISILControlFlowGraph(new List<Instruction>
         {
-            new(0, OpCode.Move, x, 5),
-            new(1, OpCode.Subtract, dead, x, 1), // dead's result is never read
+            new(0, OpCode.Move, x, Imm(5)),
+            new(1, OpCode.Subtract, dead, x, Imm(1)), // dead's result is never read
             new(2, OpCode.Return, x),
         });
 
@@ -43,9 +43,9 @@ public class DeadCodeEliminationTests
 
         var graph = new ISILControlFlowGraph(new List<Instruction>
         {
-            new(0, OpCode.Move, x, 5),
-            new(1, OpCode.Subtract, temp, x, 1),
-            new(2, OpCode.CheckLess, flag, temp, 0),
+            new(0, OpCode.Move, x, Imm(5)),
+            new(1, OpCode.Subtract, temp, x, Imm(1)),
+            new(2, OpCode.CheckLess, flag, temp, Imm(0)),
             new(3, OpCode.Return, x),
         });
 
@@ -63,12 +63,39 @@ public class DeadCodeEliminationTests
         // A call with no observed result must be kept (side effects).
         var graph = new ISILControlFlowGraph(new List<Instruction>
         {
-            new(0, OpCode.CallVoid, 0xDEADBEEFUL),
+            new(0, OpCode.CallVoid, Imm(0xDEADBEEFUL)),
             new(1, OpCode.Return),
         });
 
         DeadCodeEliminator.Run(graph);
 
         Assert.That(Live(graph).Any(i => i.OpCode == OpCode.CallVoid), Is.True, "calls must never be removed");
+    }
+
+    [Test]
+    public void ArrayOperandsCountTheirLocalsAsUses()
+    {
+        // arr and i are only read inside array operands, so their definitions have to survive
+        var array = new LocalVariable("arr", new Register(null, "arr"));
+        var index = new LocalVariable("i", new Register(null, "i"));
+        var element = new LocalVariable("elem", new Register(null, "elem"));
+        var length = new LocalVariable("len", new Register(null, "len"));
+        var pointer = new LocalVariable("ptr", new Register(null, "ptr"));
+
+        var graph = new ISILControlFlowGraph(new List<Instruction>
+        {
+            new(0, OpCode.Move, index, Imm(1)),
+            new(1, OpCode.Move, element, new ArrayAccess(array, index)),
+            new(2, OpCode.Move, length, new ArrayLength(array)),
+            new(3, OpCode.Move, pointer, new AddressOf(new ArrayAccess(array, index))),
+            new(4, OpCode.Add, element, element, length),
+            new(5, OpCode.Add, element, element, pointer),
+            new(6, OpCode.Return, element),
+        });
+
+        DeadCodeEliminator.Run(graph);
+
+        Assert.That(Live(graph).Any(i => i.OpCode == OpCode.Move && ReferenceEquals(i.Operands[0], index)), Is.True,
+            "index definition is used inside the array operands and must survive");
     }
 }

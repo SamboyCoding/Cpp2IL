@@ -16,9 +16,11 @@ public abstract class BaseKeyFunctionAddresses
 {
     public ulong il2cpp_codegen_initialize_method; //Either this
     public ulong il2cpp_codegen_initialize_runtime_metadata; //Or this, are present, depending on metadata version, but not exported.
+    public ulong il2cpp_codegen_initialize_runtime_metadata_inline; //Thunk of the above without the memory barrier, and it hands the value back. Exception handlers use it.
     public ulong il2cpp_vm_metadatacache_initializemethodmetadata; //This is thunked from the above (but only pre-27?)
     public ulong il2cpp_runtime_class_init_export; //Api function (exported)
     public ulong il2cpp_runtime_class_init_actual; //Thunked from above
+    public ulong il2cpp_codegen_runtime_class_init; //Thunked TO the above, called by managed method bodies
     public ulong il2cpp_object_new; //Api Function (exported)
     public ulong il2cpp_vm_object_new; //Thunked from above
     public ulong il2cpp_codegen_object_new; //Thunked TO above
@@ -47,6 +49,8 @@ public abstract class BaseKeyFunctionAddresses
     public ulong il2cpp_codegen_raise_exception; //Thunked TO above. don't know real name.
 
     public ulong il2cpp_vm_object_is_inst; //Not exported, not thunked. Can be located via the Type#IsInstanceOfType icall.
+
+    public ulong il2cpp_codegen_write_barrier; //Not exported, not thunked. Located via corlib methods which store a reference into a field. Zero if the build has write barriers disabled.
 
     public ulong AddrPInvokeLookup; //TODO Re-find this and fix name
 
@@ -79,9 +83,7 @@ public abstract class BaseKeyFunctionAddresses
         Init(applicationAnalysisContext);
 
         //Try to find System.Exception (should always be there)
-        if (applicationAnalysisContext.Binary.InstructionSetId == DefaultInstructionSets.X86_32 || applicationAnalysisContext.Binary.InstructionSetId == DefaultInstructionSets.X86_64)
-            //TODO make this abstract and implement in subclasses.
-            TryGetInitMetadataFromException();
+        TryGetInitMetadataFromException();
 
         //New Object
         FindExport("il2cpp_object_new", out il2cpp_object_new);
@@ -116,6 +118,9 @@ public abstract class BaseKeyFunctionAddresses
         //Object IsInst
         il2cpp_vm_object_is_inst = GetObjectIsInstFromSystemType();
 
+        //GC write barrier
+        il2cpp_codegen_write_barrier = GetWriteBarrier();
+
         AttemptInstructionAnalysisToFillGaps();
 
         FindThunks();
@@ -130,14 +135,13 @@ public abstract class BaseKeyFunctionAddresses
         var type = ReflectionCache.GetType("Exception", "System")!;
         Logger.VerboseNewline("\t\tType Located. Ensuring method exists...");
         var targetMethod = type.Methods!.FirstOrDefault(m => m.Name == "get_Message");
-        if (targetMethod != null) //Check struct contains valid data 
+        if (targetMethod != null) //Check struct contains valid data
         {
             Logger.VerboseNewline($"\t\tTarget Method Located at {targetMethod.MethodPointer}. Taking first CALL as the (version-specific) metadata initialization function...");
 
-            var disasm = X86Utils.GetMethodBodyAtVirtAddressNew(targetMethod.MethodPointer, false, _appContext.Binary);
-            var calls = disasm.Where(i => i.Mnemonic == Mnemonic.Call).ToList();
+            var target = FindFirstCallTargetInMethod(targetMethod.MethodPointer);
 
-            if (calls.Count == 0)
+            if (target == 0)
             {
                 Logger.WarnNewline("Couldn't find any call instructions in the method body. This is not expected. Will not have metadata initialization function.");
                 return;
@@ -145,16 +149,19 @@ public abstract class BaseKeyFunctionAddresses
 
             if (_appContext.MetadataVersion < 27)
             {
-                il2cpp_codegen_initialize_method = calls.First().NearBranchTarget;
+                il2cpp_codegen_initialize_method = target;
                 Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_method => 0x{il2cpp_codegen_initialize_method:X}");
             }
             else
             {
-                il2cpp_codegen_initialize_runtime_metadata = calls.First().NearBranchTarget;
+                il2cpp_codegen_initialize_runtime_metadata = target;
                 Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_runtime_metadata => 0x{il2cpp_codegen_initialize_runtime_metadata:X}");
             }
         }
     }
+
+    // the address the first call instruction in the method at methodVa targets, or 0 if there is none or this isn't supported
+    protected virtual ulong FindFirstCallTargetInMethod(ulong methodVa) => 0;
 
     protected virtual void AttemptInstructionAnalysisToFillGaps()
     {
@@ -164,14 +171,14 @@ public abstract class BaseKeyFunctionAddresses
     {
         if (il2cpp_object_new != 0)
         {
-            Logger.Verbose("\t\tMapping il2cpp_object_new to vm::Object::New...");
+            Logger.Verbose("\tMapping il2cpp_object_new to vm::Object::New...");
             il2cpp_vm_object_new = FindFunctionThisIsAThunkOf(il2cpp_object_new, true);
             Logger.VerboseNewline($"Found at 0x{il2cpp_vm_object_new:X}");
         }
 
         if (il2cpp_vm_object_new != 0)
         {
-            Logger.Verbose("\t\tLooking for il2cpp_codegen_object_new as a thunk of vm::Object::New...");
+            Logger.Verbose("\tLooking for il2cpp_codegen_object_new as a thunk of vm::Object::New...");
 
             var potentialThunks = FindAllThunkFunctions(il2cpp_vm_object_new, 16);
 
@@ -190,90 +197,120 @@ public abstract class BaseKeyFunctionAddresses
 
         if (il2cpp_type_get_object != 0)
         {
-            Logger.Verbose("\t\tMapping il2cpp_resolve_icall to Reflection::GetTypeObject...");
+            Logger.Verbose("\tMapping il2cpp_resolve_icall to Reflection::GetTypeObject...");
             il2cpp_vm_reflection_get_type_object = FindFunctionThisIsAThunkOf(il2cpp_type_get_object);
             Logger.VerboseNewline($"Found at 0x{il2cpp_vm_reflection_get_type_object:X}");
         }
 
         if (il2cpp_resolve_icall != 0)
         {
-            Logger.Verbose("\t\tMapping il2cpp_resolve_icall to InternalCalls::Resolve...");
+            Logger.Verbose("\tMapping il2cpp_resolve_icall to InternalCalls::Resolve...");
             InternalCalls_Resolve = FindFunctionThisIsAThunkOf(il2cpp_resolve_icall);
             Logger.VerboseNewline($"Found at 0x{InternalCalls_Resolve:X}");
         }
 
         if (il2cpp_string_new != 0)
         {
-            Logger.Verbose("\t\tMapping il2cpp_string_new to String::New...");
+            Logger.Verbose("\tMapping il2cpp_string_new to String::New...");
             il2cpp_vm_string_new = FindFunctionThisIsAThunkOf(il2cpp_string_new);
             Logger.VerboseNewline($"Found at 0x{il2cpp_vm_string_new:X}");
         }
 
         if (il2cpp_string_new_wrapper != 0)
         {
-            Logger.Verbose("\t\tMapping il2cpp_string_new_wrapper to String::NewWrapper...");
+            Logger.Verbose("\tMapping il2cpp_string_new_wrapper to String::NewWrapper...");
             il2cpp_vm_string_newWrapper = FindFunctionThisIsAThunkOf(il2cpp_string_new_wrapper);
             Logger.VerboseNewline($"Found at 0x{il2cpp_vm_string_newWrapper:X}");
         }
 
         if (il2cpp_vm_string_newWrapper != 0)
         {
-            Logger.Verbose("\t\tMapping String::NewWrapper to il2cpp_codegen_string_new_wrapper...");
+            Logger.Verbose("\tMapping String::NewWrapper to il2cpp_codegen_string_new_wrapper...");
             il2cpp_codegen_string_new_wrapper = FindAllThunkFunctions(il2cpp_vm_string_newWrapper, 0, il2cpp_string_new_wrapper).FirstOrDefault();
             Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_string_new_wrapper:X}");
         }
 
         if (il2cpp_value_box != 0)
         {
-            Logger.Verbose("\t\tMapping il2cpp_value_box to Object::Box...");
+            Logger.Verbose("\tMapping il2cpp_value_box to Object::Box...");
             il2cpp_vm_object_box = FindFunctionThisIsAThunkOf(il2cpp_value_box);
             Logger.VerboseNewline($"Found at 0x{il2cpp_vm_object_box:X}");
         }
 
         if (il2cpp_object_unbox != 0)
         {
-            Logger.Verbose("\t\tMapping il2cpp_object_unbox to Object::Unbox...");
+            Logger.Verbose("\tMapping il2cpp_object_unbox to Object::Unbox...");
             il2cpp_vm_object_unbox = FindFunctionThisIsAThunkOf(il2cpp_object_unbox);
             Logger.VerboseNewline($"Found at 0x{il2cpp_vm_object_unbox:X}");
         }
 
         if (il2cpp_raise_exception != 0)
         {
-            Logger.Verbose("\t\tMapping il2cpp_raise_exception to il2cpp::vm::Exception::Raise...");
+            Logger.Verbose("\tMapping il2cpp_raise_exception to il2cpp::vm::Exception::Raise...");
             il2cpp_vm_exception_raise = FindFunctionThisIsAThunkOf(il2cpp_raise_exception, true);
             Logger.VerboseNewline($"Found at 0x{il2cpp_vm_exception_raise:X}");
         }
 
         if (il2cpp_vm_exception_raise != 0)
         {
-            Logger.Verbose("\t\tMapping il2cpp::vm::Exception::Raise to il2cpp_codegen_raise_exception...");
+            Logger.Verbose("\tMapping il2cpp::vm::Exception::Raise to il2cpp_codegen_raise_exception...");
             il2cpp_codegen_raise_exception = FindAllThunkFunctions(il2cpp_vm_exception_raise, 4, il2cpp_raise_exception).FirstOrDefault();
             Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_raise_exception:X}");
         }
 
+        if (il2cpp_codegen_initialize_runtime_metadata != 0)
+        {
+            Logger.Verbose("\tLooking for il2cpp_codegen_initialize_runtime_metadata_inline as a thunk of the metadata init...");
+            il2cpp_codegen_initialize_runtime_metadata_inline = FindAllThunkFunctions(il2cpp_codegen_initialize_runtime_metadata).FirstOrDefault();
+            Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_initialize_runtime_metadata_inline:X}");
+        }
+
         if (il2cpp_runtime_class_init_export != 0)
         {
-            Logger.Verbose("\t\tMapping il2cpp_runtime_class_init to il2cpp:vm::Runtime::ClassInit...");
+            Logger.Verbose("\tMapping il2cpp_runtime_class_init to il2cpp:vm::Runtime::ClassInit...");
             il2cpp_runtime_class_init_actual = FindFunctionThisIsAThunkOf(il2cpp_runtime_class_init_export);
             Logger.VerboseNewline($"Found at 0x{il2cpp_runtime_class_init_actual:X}");
         }
 
+        if (il2cpp_runtime_class_init_actual != 0)
+        {
+            Logger.Verbose("\tLooking for il2cpp_codegen_runtime_class_init as a thunk of Runtime::ClassInit...");
+
+            var potentialThunks = FindAllThunkFunctions(il2cpp_runtime_class_init_actual, 16, il2cpp_runtime_class_init_export)
+                .Select(ptr => (ptr, count: GetCallerCount(ptr)))
+                .ToList();
+            potentialThunks.SortByExtractedKey(pair => pair.count);
+            potentialThunks.Reverse();
+
+            // don't clobber a value an instruction-set-specific pass already found (wasm finds no thunks here)
+            if (potentialThunks.FirstOrDefault().ptr is var thunk && thunk != 0)
+                il2cpp_codegen_runtime_class_init = thunk;
+
+            Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_runtime_class_init:X}");
+        }
+
         if (il2cpp_array_new_specific != 0)
         {
-            Logger.Verbose("\t\tMapping il2cpp_array_new_specific to vm::Array::NewSpecific...");
+            Logger.Verbose("\tMapping il2cpp_array_new_specific to vm::Array::NewSpecific...");
             il2cpp_vm_array_new_specific = FindFunctionThisIsAThunkOf(il2cpp_array_new_specific);
             Logger.VerboseNewline($"Found at 0x{il2cpp_vm_array_new_specific:X}");
         }
 
         if (il2cpp_vm_array_new_specific != 0)
         {
-            Logger.Verbose("\t\tLooking for SzArrayNew as a thunk function proxying Array::NewSpecific...");
+            Logger.Verbose("\tLooking for SzArrayNew as a thunk function proxying Array::NewSpecific...");
             SzArrayNew = FindAllThunkFunctions(il2cpp_vm_array_new_specific, 4, il2cpp_array_new_specific).FirstOrDefault();
             Logger.VerboseNewline($"Found at 0x{SzArrayNew:X}");
         }
     }
 
     protected abstract ulong GetObjectIsInstFromSystemType();
+
+    /// <summary>
+    /// Locates Il2CppCodeGenWriteBarrier, the GC write barrier emitted after every reference store into a
+    /// heap object. Returns 0 where it can't be found, including builds which have write barriers disabled.
+    /// </summary>
+    protected virtual ulong GetWriteBarrier() => 0;
 
     /// <summary>
     /// Given a function at addr, find a function which serves no purpose other than to call addr.
@@ -307,9 +344,11 @@ public abstract class BaseKeyFunctionAddresses
 
         AddResolved(il2cpp_codegen_initialize_method);
         AddResolved(il2cpp_codegen_initialize_runtime_metadata);
+        AddResolved(il2cpp_codegen_initialize_runtime_metadata_inline);
         AddResolved(il2cpp_vm_metadatacache_initializemethodmetadata);
         AddResolved(il2cpp_runtime_class_init_export);
         AddResolved(il2cpp_runtime_class_init_actual);
+        AddResolved(il2cpp_codegen_runtime_class_init);
         AddResolved(il2cpp_object_new);
         AddResolved(il2cpp_vm_object_new);
         AddResolved(il2cpp_codegen_object_new);
@@ -338,6 +377,8 @@ public abstract class BaseKeyFunctionAddresses
         AddResolved(il2cpp_codegen_raise_exception);
 
         AddResolved(il2cpp_vm_object_is_inst);
+
+        AddResolved(il2cpp_codegen_write_barrier);
 
         AddResolved(AddrPInvokeLookup);
 

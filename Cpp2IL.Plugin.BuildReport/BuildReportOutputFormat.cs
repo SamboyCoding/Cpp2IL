@@ -44,7 +44,7 @@ public class BuildReportOutputFormat : Cpp2IlOutputFormat
         //Number of variants per generic base type
         var genericMethodDataByBaseMd = new Dictionary<Il2CppMethodDefinition, GenericMethodData>();
 
-        foreach (var mSpec in context.Binary.AllGenericMethodSpecs)
+        foreach (var mSpec in context.Metadata.AllGenericMethodSpecs)
         {
             var md = mSpec.MethodDefinition!;
 

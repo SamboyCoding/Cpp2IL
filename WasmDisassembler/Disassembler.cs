@@ -27,96 +27,66 @@ public static class Disassembler
 
     private static WasmInstruction ReadInstruction(this BinaryReader reader, WasmMnemonic mnemonic)
     {
-        var ret = new WasmInstruction { Mnemonic = mnemonic, };
+        var s = reader.BaseStream;
+        var ret = new WasmInstruction { Mnemonic = mnemonic };
 
-        var opTypes = mnemonic.GetOperandTypes();
-        if (opTypes.Length == 0)
+        if (mnemonic is >= WasmMnemonic.I32Load and <= WasmMnemonic.I64Store32)
         {
-            ret.Operands = [];
+            //Align, offset
+            ret.Operands = [s.ReadLEB128Unsigned(), s.ReadLEB128Unsigned()];
             return ret;
         }
 
-        ret.Operands = opTypes.Select(reader.ReadPrimitive).ToArray();
-
-        return ret;
-    }
-
-    private static Type[] GetOperandTypes(this WasmMnemonic mnemonic)
-    {
-        if (mnemonic is >= WasmMnemonic.I32Load and <= WasmMnemonic.I64Store32)
-            //Align, offset
-            return [typeof(LEB128), typeof(LEB128)];
-
         switch (mnemonic)
         {
-            case WasmMnemonic.If:
             case WasmMnemonic.Block:
             case WasmMnemonic.Loop:
+            case WasmMnemonic.If:
+                //block type, signed so the shorthand value types decode as negatives (non-negative is a type index)
+                ret.Operands = [s.ReadLEB128Signed()];
+                break;
             case WasmMnemonic.LocalGet:
             case WasmMnemonic.LocalSet:
+            case WasmMnemonic.LocalTee:
             case WasmMnemonic.GlobalGet:
             case WasmMnemonic.GlobalSet:
-            case WasmMnemonic.LocalTee:
-            case WasmMnemonic.BrIf:
             case WasmMnemonic.Br:
-                return [typeof(byte)];
-            case WasmMnemonic.I32Const:
-            case WasmMnemonic.I64Const:
+            case WasmMnemonic.BrIf:
             case WasmMnemonic.Call:
-                return [typeof(LEB128)];
-            case WasmMnemonic.F32Const:
-                return [typeof(float)];
-            case WasmMnemonic.F64Const:
-                return [typeof(double)];
+            case WasmMnemonic.MemorySize:
+            case WasmMnemonic.MemoryGrow:
+                ret.Operands = [s.ReadLEB128Unsigned()];
+                break;
+            case WasmMnemonic.BrTable:
+            {
+                var count = s.ReadLEB128Unsigned();
+                var labels = new ulong[count];
+                for (var i = 0UL; i < count; i++)
+                    labels[i] = s.ReadLEB128Unsigned();
+
+                //Labels, default label
+                ret.Operands = [labels, s.ReadLEB128Unsigned()];
+                break;
+            }
             case WasmMnemonic.CallIndirect:
                 //Type, table
-                return [typeof(LEB128), typeof(byte)];
+                ret.Operands = [s.ReadLEB128Unsigned(), s.ReadLEB128Unsigned()];
+                break;
+            case WasmMnemonic.I32Const:
+            case WasmMnemonic.I64Const:
+                ret.Operands = [s.ReadLEB128Signed()];
+                break;
+            case WasmMnemonic.F32Const:
+                ret.Operands = [reader.ReadSingle()];
+                break;
+            case WasmMnemonic.F64Const:
+                ret.Operands = [reader.ReadDouble()];
+                break;
             default:
-                return [];
+                ret.Operands = [];
+                break;
         }
-    }
 
-    internal static object ReadPrimitive(this BinaryReader reader, Type type)
-    {
-        if (type == typeof(bool))
-            return reader.ReadBoolean();
-
-        if (type == typeof(char))
-            return reader.ReadChar();
-
-        if (type == typeof(int))
-            return reader.ReadInt32();
-
-        if (type == typeof(uint))
-            return reader.ReadUInt32();
-
-        if (type == typeof(short))
-            return reader.ReadInt16();
-
-        if (type == typeof(ushort))
-            return reader.ReadUInt16();
-
-        if (type == typeof(sbyte))
-            return reader.ReadSByte();
-
-        if (type == typeof(byte))
-            return reader.ReadByte();
-
-        if (type == typeof(long))
-            return reader.ReadInt64();
-
-        if (type == typeof(ulong))
-            return reader.ReadUInt64();
-
-        if (type == typeof(float))
-            return reader.ReadSingle();
-
-        if (type == typeof(double))
-            return reader.ReadDouble();
-
-        if (type == typeof(LEB128))
-            return reader.BaseStream.ReadLEB128Signed();
-
-        throw new($"Bad primitive type: {type}");
+        return ret;
     }
 }

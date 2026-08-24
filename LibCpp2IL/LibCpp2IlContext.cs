@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
@@ -144,7 +145,7 @@ public sealed class LibCpp2IlContext
     public MetadataUsage? GetRawTypeGlobalByAddress(ulong address)
         => Metadata.MetadataVersion < 27f ? TypeRefsByAddress.GetOrDefault(address) : GetAnyGlobalByAddress(address);
 
-    public Il2CppTypeReflectionData? GetTypeGlobalByAddress(ulong address)
+    public Il2CppType? GetTypeGlobalByAddress(ulong address)
     {
         var typeGlobal = GetRawTypeGlobalByAddress(address);
 

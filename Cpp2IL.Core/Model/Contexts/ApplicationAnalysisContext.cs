@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -11,6 +12,7 @@ using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -71,6 +73,17 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     public readonly Dictionary<ulong, List<MethodAnalysisContext>> MethodsByAddress = new();
 
     /// <summary>
+    /// Exception type name thrown by the runtime helper at each address, or null where the address turned
+    /// out not to be a throw helper. Populated on demand by <see cref="Analysis.ThrowHelperRecovery"/>.
+    /// </summary>
+    public readonly ConcurrentDictionary<ulong, string?> ThrowHelperNamesByAddress = new();
+
+    /// <summary>
+    /// Dict of address to "is this method analogue to il2cpp::vm::Exception::Raise"
+    /// </summary>
+    public readonly ConcurrentDictionary<ulong, bool> ExceptionRaisersByAddress = new();
+
+    /// <summary>
     /// A dictionary of all the generic method variants to their corresponding analysis contexts.
     /// </summary>
     public readonly Dictionary<Cpp2IlMethodRef, ConcreteGenericMethodAnalysisContext> ConcreteGenericMethodsByRef = new();
@@ -86,6 +99,11 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     public bool HasFinishedInitializing { get; private set; }
 
     private readonly Dictionary<Il2CppImageDefinition, AssemblyAnalysisContext> AssembliesByImageDefinition = new();
+
+    /// <summary>
+    /// Cache for <see cref="GenericInstanceTypeAnalysisContext.GetOrCreate(Il2CppType, AssemblyAnalysisContext)"/>
+    /// </summary>
+    internal readonly ConcurrentDictionary<Il2CppType, Lazy<GenericInstanceTypeAnalysisContext>> GenericInstanceTypesByIl2CppType = new();
 
     public ApplicationAnalysisContext(LibCpp2IlContext context)
     {
@@ -125,7 +143,9 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// </summary>
     private void PopulateMethodsByAddressTable()
     {
-        Assemblies.SelectMany(a => a.Types).SelectMany(t => t.Methods).ToList().ForEach(m =>
+        var allMethods = Assemblies.SelectMany(a => a.Types).SelectMany(t => t.Methods).ToList();
+
+        allMethods.ForEach(m =>
         {
             m.EnsureRawBytes();
             var ptr = InstructionSet.GetPointerForMethod(m);
@@ -135,6 +155,9 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
 
             MethodsByAddress[ptr].Add(m);
         });
+
+        Logger.VerboseNewline("\tProcessing internal calls...");
+        RegisterInternalCallTargets(allMethods);
 
         Logger.VerboseNewline("\tProcessing concrete generic methods...");
         foreach (var methodRef in Binary.ConcreteGenericMethods.Values.SelectMany(v => v))
@@ -152,6 +175,16 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
 
             MethodsByAddress[ptr].Add(gm);
             ConcreteGenericMethodsByRef[methodRef] = gm;
+
+            if (methodRef.AdjustorThunkPtr != 0
+                && InstructionSet.GetThunkTarget(this, methodRef.AdjustorThunkPtr) is not 0 and var thunkTarget
+                && thunkTarget != ptr)
+            {
+                if (!MethodsByAddress.TryGetValue(thunkTarget, out var atTarget))
+                    MethodsByAddress[thunkTarget] = atTarget = [];
+
+                atTarget.Add(gm);
+            }
 #if !DEBUG
             }
             catch (Exception e)
@@ -160,6 +193,36 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
             }
 #endif
         }
+    }
+
+    // ICalls are implemented as a stub that tail-jumps into the runtime (e.g. Math.Ceiling => the c runtime's
+    // ceil, Monitor.Enter => il2cpp::vm::Monitor::TryEnter). Many callers get inlined straight to that runtime
+    // address, so we map those out ahead of time so we can resolve them. 
+    private void RegisterInternalCallTargets(List<MethodAnalysisContext> allMethods)
+    {
+        var byTarget = new Dictionary<ulong, List<MethodAnalysisContext>>();
+
+        foreach (var method in allMethods)
+        {
+            // Il2CppMethodDefinition.MethodImplAttributes masks this bit out, check directly against iflags
+            if (method.Definition is not { } definition || (definition.iflags & (ushort)MethodImplAttributes.InternalCall) == 0)
+                continue;
+
+            var target = InstructionSet.GetInternalCallTarget(method);
+
+            if (target == 0 || MethodsByAddress.ContainsKey(target))
+                continue;
+
+            if (!byTarget.TryGetValue(target, out var methods))
+                byTarget[target] = methods = [];
+
+            methods.Add(method);
+        }
+
+        foreach (var (target, methods) in byTarget)
+            MethodsByAddress[target] = methods;
+
+        Logger.VerboseNewline($"\t\tRegistered {byTarget.Count} internal call targets, of which {byTarget.Count(t => t.Value.Count > 1)} are ambiguous");
     }
 
     /// <summary>
@@ -179,6 +242,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         return AssembliesByName[name];
     }
 
+    [return: NotNullIfNotNull(nameof(imageDefinition))]
     public AssemblyAnalysisContext? ResolveContextForAssembly(Il2CppImageDefinition? imageDefinition)
     {
         return imageDefinition is not null
@@ -186,6 +250,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
             : null;
     }
 
+    [return: NotNullIfNotNull(nameof(assemblyDefinition))]
     public AssemblyAnalysisContext? ResolveContextForAssembly(Il2CppAssemblyDefinition? assemblyDefinition)
     {
         return ResolveContextForAssembly(assemblyDefinition?.Image);

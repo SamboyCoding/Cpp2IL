@@ -173,6 +173,19 @@ public class Il2CppType : ReadableClass
         };
     }
 
+    public override string ToString()
+    {
+        try
+        {
+            return LibCpp2ILUtils.GetTypeName(OwningContext, this, true);
+        }
+        catch
+        {
+            //ToString has no business throwing, and there are type kinds (fnptr and friends) we can't name
+            return $"Il2CppType({Type})";
+        }
+    }
+
     public string GetGenericParamName()
     {
         if (!ThisOrElementIsGenericParam())

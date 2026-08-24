@@ -15,46 +15,45 @@ public class PrimitiveTests
 
         var assemblies = new AsmResolverDllOutputFormatEmpty().BuildAssemblies(appContext);
 
-        var mscorlib = assemblies.First(a => a.Name == "mscorlib").ManifestModule!;
         var notMscorlib = assemblies.First(a => a.Name != "mscorlib").ManifestModule!;
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(appContext.SystemTypes.SystemByteType.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemSByteType.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemInt16Type.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemUInt16Type.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemInt32Type.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemUInt32Type.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemInt64Type.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemUInt64Type.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemSingleType.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemDoubleType.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemIntPtrType.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemUIntPtrType.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemBooleanType.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemCharType.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemStringType.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemObjectType.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
-            Assert.That(appContext.SystemTypes.SystemTypedReferenceType.ToTypeSignature(mscorlib) is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemByteType.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemSByteType.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemInt16Type.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemUInt16Type.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemInt32Type.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemUInt32Type.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemInt64Type.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemUInt64Type.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemSingleType.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemDoubleType.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemIntPtrType.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemUIntPtrType.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemBooleanType.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemCharType.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemStringType.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemObjectType.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
+            Assert.That(appContext.SystemTypes.SystemTypedReferenceType.ToTypeSignature() is CorLibTypeSignature { Scope: ModuleDefinition });
 
-            Assert.That(appContext.SystemTypes.SystemByteType.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemSByteType.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemInt16Type.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemUInt16Type.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemInt32Type.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemUInt32Type.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemInt64Type.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemUInt64Type.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemSingleType.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemDoubleType.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemIntPtrType.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemUIntPtrType.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemBooleanType.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemCharType.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemStringType.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemObjectType.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
-            Assert.That(appContext.SystemTypes.SystemTypedReferenceType.ToTypeSignature(notMscorlib) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemByteType.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemSByteType.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemInt16Type.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemUInt16Type.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemInt32Type.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemUInt32Type.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemInt64Type.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemUInt64Type.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemSingleType.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemDoubleType.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemIntPtrType.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemUIntPtrType.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemBooleanType.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemCharType.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemStringType.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemObjectType.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
+            Assert.That(notMscorlib.DefaultImporter.ImportTypeSignature(appContext.SystemTypes.SystemTypedReferenceType.ToTypeSignature()) is CorLibTypeSignature { Scope: AssemblyReference });
         }
     }
 }

@@ -17,7 +17,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             -   uses: actions/checkout@v7
-            -   uses: actions/setup-dotnet@v5.4.0
+            -   uses: actions/setup-dotnet@v6.0.0
                 with:
                     dotnet-version: 10.x
             -   id: git-vars
@@ -58,7 +58,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             -   uses: actions/checkout@v7
-            -   uses: actions/setup-dotnet@v5.4.0
+            -   uses: actions/setup-dotnet@v6.0.0
                 with:
                     dotnet-version: 10.x
             -   name: Install dependencies
@@ -77,7 +77,7 @@ jobs:
         if: github.repository == 'SamboyCoding/Cpp2IL'
         steps:
             -   uses: actions/checkout@v7
-            -   uses: actions/setup-dotnet@v5.4.0
+            -   uses: actions/setup-dotnet@v6.0.0
                 with:
                     dotnet-version: 10.x
             -   id: git-vars
@@ -106,9 +106,9 @@ jobs:
             -   name: Build all
                 run: dotnet build -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
             -   name: Run Tests
-                run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=lcov /p:CoverletOutput='./lcov.info' /p:ExcludeByAttribute="LibCpp2IL.Coverage.NoCoverageAttribute"
+                run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=lcov /p:TestingPlatformDotnetTestSupport=true /p:CoverletOutput='./lcov.info' /p:ExcludeByAttribute="LibCpp2IL.Coverage.NoCoverageAttribute"
             -   name: Upload Coverage
-                uses: coverallsapp/github-action@v2.3.6
+                uses: coverallsapp/github-action@v2.3.8
                 with:
                     github-token: ${{ secrets.GITHUB_TOKEN }}
                     files: ./Cpp2IL.Core.Tests/lcov.info ./LibCpp2ILTests/lcov.info

@@ -1,23 +1,40 @@
+using System;
 using System.Collections.Generic;
-using System.Globalization;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.ISIL;
 
-public class Instruction(int index, OpCode opcode, params object[] operands)
+public class Instruction : IOperand
 {
-    public int Index = index;
+    public int Index;
 
-    public OpCode OpCode = opcode;
+    public OpCode OpCode
+    {
+        get;
+        set
+        {
+            if (field == value)
+                return;
 
-    public List<object> Operands = operands.ToList();
+            field = value;
+            ResetSources();
+        }
+    }
+
+    private List<IOperand> _operands;
+
+    public OperandList Operands => new(_operands);
+
+    // Exists to clear the return register after a CallVoid, basically.
+    public Register? ImplicitDefinition;
 
     public bool IsFallThrough =>
         OpCode switch
         {
-            OpCode.Return or OpCode.Jump or OpCode.ConditionalJump or OpCode.IndirectJump => false,
+            OpCode.Return or OpCode.Jump or OpCode.ConditionalJump or OpCode.IndirectJump or OpCode.Throw => false,
             _ => true
         };
 
@@ -25,17 +42,52 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
 
     public bool IsAssignment => Destination != null;
 
-    public List<object> Sources => GetSources();
+    public OperandList Sources => new(_sources.Value);
+    private Lazy<List<IOperand>> _sources;
 
-    public List<object> SourcesAndConstants => GetSources(false);
+    public OperandList SourcesAndConstants => new(_sourcesAndConstants.Value);
+    private Lazy<List<IOperand>> _sourcesAndConstants;
 
-    public object? Destination
+    public Instruction(int index, OpCode opcode, params List<IOperand> operands)
+    {
+        Index = index;
+        OpCode = opcode;
+        _operands = operands;
+        ResetSources();
+    }
+
+    [MemberNotNull(nameof(_operands))]
+    public void SetOperands(params List<IOperand> operands)
+    {
+        _operands = operands;
+        ResetSources();
+    }
+
+    public void SetOperand(int index, IOperand value)
+    {
+        _operands[index] = value;
+        ResetSources();
+    }
+
+    public void AddOperands(IEnumerable<IOperand> operands)
+    {
+        _operands.AddRange(operands);
+        ResetSources();
+    }
+
+    public void RemoveOperandAt(int index)
+    {
+        _operands.RemoveAt(index);
+        ResetSources();
+    }
+
+    public IOperand? Destination
     {
         get => GetOrSetDestination();
         set => GetOrSetDestination(value);
     }
 
-    private object? GetOrSetDestination(object? newDestination = null)
+    private IOperand? GetOrSetDestination(IOperand? newDestination = null)
     {
         switch (OpCode)
         {
@@ -45,6 +97,7 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
             case OpCode.Subtract:
             case OpCode.Multiply:
             case OpCode.Divide:
+            case OpCode.Modulo:
             case OpCode.ShiftLeft:
             case OpCode.ShiftRight:
             case OpCode.And:
@@ -59,50 +112,72 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
             case OpCode.CheckGreaterOrEqual:
             case OpCode.CheckLessOrEqual:
             case OpCode.Newobj:
+            case OpCode.Box:
                 if (newDestination != null)
-                    Operands[0] = newDestination;
-                return IsConstantValue(Operands[0]) ? null : Operands[0];
+                    SetOperand(0, newDestination);
+                return IsConstantValue(_operands[0]) ? null : _operands[0];
 
             // A call's operand 0 is the target; its return value is operand 1 (per OpCode.Call).
             // CallVoid has no return value and so has no destination, and a Call may also be emitted
             // without a return-value operand, in which case it likewise has no destination.
             case OpCode.Call:
-                if (Operands.Count < 2)
+            case OpCode.IndirectCall:
+                if (_operands.Count < 2)
                     return null;
                 if (newDestination != null)
-                    Operands[1] = newDestination;
-                return IsConstantValue(Operands[1]) ? null : Operands[1];
+                    SetOperand(1, newDestination);
+                return IsConstantValue(_operands[1]) ? null : _operands[1];
 
             default:
                 return null;
         }
     }
 
-    private List<object> GetSources(bool constantsOnly = true)
+    [MemberNotNull(nameof(_sources), nameof(_sourcesAndConstants))]
+    private void ResetSources()
+    {
+        if (_sources is { IsValueCreated: false } && _sourcesAndConstants is { IsValueCreated: false })
+        {
+            return;
+        }
+
+        _sources = new Lazy<List<IOperand>>(() => GetSources());
+        _sourcesAndConstants = new Lazy<List<IOperand>>(() => GetSources(false));
+    }
+
+    private List<IOperand> GetSources(bool constantsOnly = true)
     {
         var sources = OpCode switch
         {
             OpCode.Move or OpCode.ConditionalJump
                 or OpCode.ShiftStack or OpCode.Not or OpCode.Negate
                 or OpCode.Newobj
-                => [Operands[1]],
+                => [_operands[1]],
+
+            OpCode.Box => [_operands[2]],
 
             OpCode.Add or OpCode.Subtract or OpCode.Multiply
-                or OpCode.Divide or OpCode.ShiftLeft or OpCode.ShiftRight
+                or OpCode.Divide or OpCode.Modulo or OpCode.ShiftLeft or OpCode.ShiftRight
                 or OpCode.And or OpCode.Or or OpCode.Xor
-                => [Operands[2], Operands[1]],
+                => [_operands[2], _operands[1]],
 
-            OpCode.Call => Operands.Skip(2).ToList(),
-            OpCode.CallVoid or OpCode.Phi => Operands.Skip(1).ToList(),
+            OpCode.Call => _operands.Skip(2).ToList(),
+
+            // Unlike a direct call, operand 0 is the address being called and so is itself a source.
+            OpCode.IndirectCall => _operands.Count > 2
+                ? _operands.Skip(2).Prepend(_operands[0]).ToList()
+                : _operands.Take(1).ToList(),
+
+            OpCode.CallVoid or OpCode.Phi => _operands.Skip(1).ToList(),
             OpCode.CheckEqual or OpCode.CheckGreater or OpCode.CheckLess
                 or OpCode.CheckNotEqual or OpCode.CheckGreaterOrEqual or OpCode.CheckLessOrEqual
-                => [Operands[1], Operands[2]],
+                => [_operands[1], _operands[2]],
 
             _ => []
         };
 
-        if (OpCode == OpCode.Return && Operands.Count == 1)
-            sources.Add(Operands[0]);
+        if (OpCode == OpCode.Return && _operands.Count == 1)
+            sources.Add(_operands[0]);
 
         if (constantsOnly)
             sources = sources.Where(o => !IsConstantValue(o)).ToList();
@@ -112,27 +187,32 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
 
     public override string ToString()
     {
-        if (OpCode == OpCode.Jump && Operands[0] is ulong jumpTarget)
-            return $"{Index} {OpCode} {jumpTarget:X4}";
-        if (OpCode == OpCode.ConditionalJump && Operands[0] is ulong jumpTarget2)
-            return $"{Index} {OpCode} {jumpTarget2:X4}, {FormatOperand(Operands[1])}";
+        if (OpCode == OpCode.Jump && _operands[0] is Immediate jumpTarget)
+            return $"{Index} {OpCode} {jumpTarget.Value:X4}";
+        if (OpCode == OpCode.ConditionalJump && _operands[0] is Immediate jumpTarget2)
+            return $"{Index} {OpCode} {jumpTarget2.Value:X4}, {FormatOperand(_operands[1])}";
 
-        if ((OpCode is OpCode.CallVoid or OpCode.Call) && Operands[0] is ulong callTarget)
-            return $"{Index} {OpCode} {callTarget:X4}, {string.Join(", ", Operands.Skip(1).Select(FormatOperand))}";
+        if ((OpCode is OpCode.CallVoid or OpCode.Call) && _operands[0] is Immediate callTarget)
+        {
+            var remainingOperands = string.Join(", ", _operands.Skip(1).Select(FormatOperand));
+            return string.IsNullOrEmpty(remainingOperands)
+                ? $"{Index} {OpCode} {callTarget.Value:X4}"
+                : $"{Index} {OpCode} {callTarget.Value:X4}, {remainingOperands}";
+        }
 
-        return $"{Index} {OpCode} {string.Join(", ", Operands.Select(FormatOperand))}";
+        var formattedOperands = string.Join(", ", _operands.Select(FormatOperand));
+        return string.IsNullOrEmpty(formattedOperands)
+            ? $"{Index} {OpCode}"
+            : $"{Index} {OpCode} {formattedOperands}";
     }
 
-    private static string FormatOperand(object operand)
+    private static string FormatOperand(IOperand operand)
     {
         return operand switch
         {
-            string text => $"\"{text}\"",
-            // 'f'/'d' suffixes keep a reinterpreted float literal from reading as a plain integer.
-            float f => $"{f.ToString(CultureInfo.InvariantCulture)}f",
-            double d => $"{d.ToString(CultureInfo.InvariantCulture)}d",
             MethodAnalysisContext method => $"{method.DeclaringType!.Name}.{method.Name}",
             RuntimeMethodInfoAnalysisContext methodInfo => $"methodof({methodInfo.RepresentedMethod.FullName})",
+            RuntimeFieldInfoAnalysisContext fieldInfo => $"fieldof({fieldInfo.RepresentedField.DeclaringType.FullName}.{fieldInfo.RepresentedField.Name})",
             TypeAnalysisContext type => $"typeof({type.FullName})",
             Instruction instruction => $"@{instruction.Index}",
             Block block => $"@b{block.ID}",
@@ -140,11 +220,53 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
         };
     }
 
-    public static bool IsConstantValue(object operand) =>
+    public static bool IsConstantValue(IOperand operand) =>
         operand switch
         {
             Register or StackOffset or LocalVariable => false,
+            AddressOf or ArrayAccess or ArrayLength => false,
             MemoryOperand memory => memory.IsConstant,
             _ => true
         };
+
+    // Deliberately not Equals/GetHashCode. Instructions are identity objects: the graph, stack analyzer and
+    // IL generator all key sets and dictionaries on the specific instruction instance, and generated
+    // instructions (phi copies, for one) are routinely structurally identical to each other.
+    public bool IsStructurallyEqualTo(Instruction? other)
+    {
+        if (ReferenceEquals(this, other))
+            return true;
+
+        if (other is null)
+            return false;
+
+        if (OpCode != other.OpCode)
+            return false;
+
+        if (Index != other.Index)
+            return false;
+
+        if (_operands.Count != other._operands.Count)
+            return false;
+
+        for (var i = 0; i < _operands.Count; i++)
+        {
+            var thisOperand = _operands[i];
+            var otherOperand = other._operands[i];
+
+            // Branch targets are compared by index, so a back edge doesn't send us round in circles.
+            if (thisOperand is Instruction thisTarget)
+            {
+                if (otherOperand is not Instruction otherTarget || thisTarget.Index != otherTarget.Index)
+                    return false;
+
+                continue;
+            }
+
+            if (!thisOperand.Equals(otherOperand))
+                return false;
+        }
+
+        return true;
+    }
 }

@@ -17,7 +17,7 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// <summary>
 /// Represents one method within the application. Can be analyzed to attempt to reconstruct the function body.
 /// </summary>
-public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
+public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, ISIL.IOperand
 {
     /// <summary>
     /// The underlying metadata for the method.
@@ -56,7 +56,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     /// <summary>
     /// Operands used as parameters.
     /// </summary>
-    public List<object> ParameterOperands = [];
+    public List<ISIL.IOperand> ParameterOperands = [];
 
     /// <summary>
     /// The control flow graph for this method, if one is built.
@@ -70,7 +70,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     public List<string> AnalysisWarnings = [];
 
-    private const int MaxMethodSizeBytes = 18000; // 18KB
+    public static int MaxMethodSizeBytes = 30000; // 30KB
 
     public List<ParameterAnalysisContext> Parameters = [];
 
@@ -88,6 +88,8 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     public bool IsAbstract => (Attributes & MethodAttributes.Abstract) != 0;
 
     public bool IsNewSlot => (Attributes & MethodAttributes.NewSlot) != 0;
+
+    public bool IsFinal => (Attributes & MethodAttributes.Final) != 0;
 
     protected override int CustomAttributeIndex => Definition?.customAttributeIndex ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeIndex if they have custom attributes");
 
@@ -144,7 +146,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     private ushort Slot => Definition?.slot ?? ushort.MaxValue;
 
-    public virtual TypeAnalysisContext DefaultReturnType => DeclaringType?.DeclaringAssembly.ResolveIl2CppType(Definition?.RawReturnType) ?? throw new($"Subclasses of MethodAnalysisContext should override {nameof(DefaultReturnType)}");
+    public virtual TypeAnalysisContext DefaultReturnType => AppContext.ResolveIl2CppType(Definition?.RawReturnType) ?? throw new($"Subclasses of MethodAnalysisContext should override {nameof(DefaultReturnType)}");
 
     public TypeAnalysisContext? OverrideReturnType { get; set; }
 
@@ -236,9 +238,9 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
                 {
                     if (i >= interfaceOffset.offset)
                     {
-                        var interfaceTypeContext = interfaceOffset.Type.ToContext(CustomAttributeAssembly);
+                        var interfaceTypeContext = AppContext.ResolveIl2CppType(interfaceOffset.Type);
                         var slot = i - interfaceOffset.offset;
-                        if (interfaceTypeContext != null && TryGetMethodForSlot(interfaceTypeContext, slot, out var method) && !IsInterfaceSlot(method, slot))
+                        if (TryGetMethodForSlot(interfaceTypeContext, slot, out var method) && !IsInterfaceSlot(method, slot))
                         {
                             yield return method;
                         }
@@ -258,8 +260,8 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         {
             if (slot >= interfaceOffset.offset)
             {
-                var interfaceTypeContext = interfaceOffset.Type.ToContext(method.CustomAttributeAssembly);
-                if (interfaceTypeContext != null && HasMethodForSlot(interfaceTypeContext, slot - interfaceOffset.offset))
+                var interfaceTypeContext = method.AppContext.ResolveIl2CppType(interfaceOffset.Type);
+                if (HasMethodForSlot(interfaceTypeContext, slot - interfaceOffset.offset))
                 {
                     return true;
                 }
@@ -326,13 +328,13 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     {
         //Some abstract methods (on interfaces, no less) apparently have a body? Unity doesn't support default interface methods so idk what's going on here.
         //E.g. UnityEngine.Purchasing.AppleCore.dll: UnityEngine.Purchasing.INativeAppleStore::SetUnityPurchasingCallback on among us (itch.io build)
-        if (Definition != null && Definition.MethodPointer != 0 && !Definition.Attributes.HasFlag(MethodAttributes.Abstract))
+        if (UnderlyingPointer != 0 && !DefaultAttributes.HasFlag(MethodAttributes.Abstract))
         {
             RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, this is AttributeGeneratorMethodAnalysisContext);
 
             if (RawBytes.Length == 0)
             {
-                Logger.VerboseNewline("\t\t\tUnexpectedly got 0-byte method body for " + this + $". Pointer was 0x{Definition.MethodPointer:X}", "MAC");
+                Logger.VerboseNewline("\t\t\tUnexpectedly got 0-byte method body for " + this + $". Pointer was 0x{UnderlyingPointer:X}", "MAC");
             }
         }
     }
@@ -343,7 +345,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     [MemberNotNull(nameof(ConvertedIsil))]
     public void Analyze()
     {
-        if (RawBytes.Length > MaxMethodSizeBytes)
+        if (MaxMethodSizeBytes != -1 && RawBytes.Length > MaxMethodSizeBytes)
         {
             Logger.WarnNewline($"Method {FullName} is too big ({RawBytes.Length} bytes), skipping analysis.");
             ConvertedIsil = [];
@@ -390,19 +392,47 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         // single-assignment and a type, once known, is stable for that value.
         MetadataResolver.ResolveAll(this);
 
-        // Resolve KeyFunctionAddress calls.
+        // Resolve KeyFunctionAddress calls, then collect what removing the write barriers left dead.
         KeyFunctionRecovery.Run(this);
+        DeadCodeEliminator.Run(this);
 
         // Delete any il2cpp_codegen_initialize_runtime_metadata/il2cpp_codegen_initialize_method
         MetadataInitGuardRemover.Run(this);
 
+        // Delete inlined GC write barriers
+        WriteBarrierRecovery.Run(this);
+
+        InjectedCheckRemover.Run(this);
+
+        InterfaceDispatchRecovery.Run(this);
+
         LocalVariables.ResolveTypesAndFields(this);
+
+        // Needs the MethodInfo* receivers typed, so runs after resolution unlike the class-init guards
+        MetadataInitGuardRemover.RunRgctx(this);
+
+        MetadataInitGuardRemover.RewriteUnguardedInits(this);
+
+        // Needs type resolved for delegate locals
+        DelegateInvokeRecovery.Run(this);
+        BooleanFlagSimplifier.Run(this);
+        DeadCodeEliminator.Run(this);
 
         // Copy/constant propagation belongs in SSA, where one definition dominates all uses and phis
         // make joins explicit, so forwarding a value is an unconditional global substitution.
         SsaSimplifier.Run(this);
 
+        // Folding a constant exposes more to propagate
+        for (var i = 0; i < 8 && ConstantFolder.Run(this); i++)
+            SsaSimplifier.Run(this);
+
+        InternalCallGuardRemover.Run(this);
+        KeyFunctionRecovery.Run(this);
+
         SsaForm.Remove(this);
+
+        // Phi removal leaves a copy per merged version, most of which can share one local
+        CopyCoalescer.Run(this);
 
         // Now out of SSA: clean up the per-edge copies that phi removal introduced (a local can have
         // several definitions merging at a join here, so this pass propagates conservatively), then
@@ -411,6 +441,21 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
         // Fix float literals
         FloatLiteralRecovery.Run(this);
+
+        // Runs late so the array type and length reach the allocation call as operands after copy propagation has inlined them
+        ArrayRecovery.Run(this);
+
+        LocalVariables.TypeAddressedLocals(this);
+
+        ConstantBranchFolder.Run(this);
+
+        // Near-last, as it depends on the final block layout
+        EqualityBranchInverter.Run(this);
+
+        // Every call that was going to resolve now has. Any argument registers it ended up
+        // not using are just keeping their definitions alive, so drop them.
+        CallArgumentTrimmer.Run(this);
+        DeadCodeEliminator.Run(this);
 
         LocalVariables.RemoveUnused(this);
     }

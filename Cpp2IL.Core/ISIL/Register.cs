@@ -2,7 +2,7 @@
 
 namespace Cpp2IL.Core.ISIL;
 
-public struct Register : IEquatable<Register>
+public struct Register : IOperand, IEquatable<Register>
 {
     public Register(int? number, string? name, int version = -1)
     {
