@@ -1,18 +1,20 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Model.Contexts;
 using Disarm;
-using LibCpp2IL;
 
 namespace Cpp2IL.Core.Utils;
 
 public static class NewArm64Utils
 {
-    public static List<Arm64Instruction> GetArm64MethodBodyAtVirtualAddress(Il2CppBinary binary, ulong virtAddress, bool managed = true, int count = -1)
+    public static List<Arm64Instruction> GetArm64MethodBodyAtVirtualAddress(ApplicationAnalysisContext appContext, ulong virtAddress, bool managed = true, int count = -1)
     {
+        var binary = appContext.Binary;
+        
         if (managed)
         {
-            var startOfNext = MiscUtils.GetAddressOfNextFunctionStart(virtAddress, binary);
+            var startOfNext = appContext.GetAddressOfNextFunctionStart(virtAddress);
 
             //We have to fall through to default behavior for the last method because we cannot accurately pinpoint its end
             if (startOfNext > 0)

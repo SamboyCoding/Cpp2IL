@@ -1,14 +1,11 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using AssetRipper.Primitives;
 using Cpp2IL.Core.Exceptions;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
-using Cpp2IL.Core.Utils;
-using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL;
 using LibCpp2IL.Logging;
 
@@ -124,9 +121,6 @@ public static class Cpp2IlApi
     [MemberNotNull(nameof(CurrentAppContext))]
     private static void OnLibInitialized(LibCpp2IlContext libContext)
     {
-        libContext.Binary.AllCustomAttributeGenerators.ToList()
-            .ForEach(ptr => SharedState.AttributeGeneratorStarts.Add(ptr));
-
         var start = DateTime.Now;
         Logger.InfoNewline("Creating application model...");
         CurrentAppContext = new(libContext);
@@ -135,39 +129,8 @@ public static class Cpp2IlApi
 
     public static void ResetInternalState()
     {
-        SharedState.Clear();
-
-        MiscUtils.Reset();
-
-        AsmResolverUtils.Reset();
-
         CurrentAppContext = null;
     }
-
-    // public static void PopulateConcreteImplementations()
-    // {
-    //     CheckLibInitialized();
-    //
-    //     Logger.InfoNewline("Populating Concrete Implementation Table...");
-    //
-    //     foreach (var def in LibCpp2IlMain.TheMetadata!.typeDefs)
-    //     {
-    //         if (def.IsAbstract)
-    //             continue;
-    //
-    //         var baseTypeReflectionData = def.BaseType;
-    //         while (baseTypeReflectionData != null)
-    //         {
-    //             if (baseTypeReflectionData.baseType == null)
-    //                 break;
-    //
-    //             if (baseTypeReflectionData.isType && baseTypeReflectionData.baseType.IsAbstract && !SharedState.ConcreteImplementations.ContainsKey(baseTypeReflectionData.baseType))
-    //                 SharedState.ConcreteImplementations[baseTypeReflectionData.baseType] = def;
-    //
-    //             baseTypeReflectionData = baseTypeReflectionData.baseType.BaseType;
-    //         }
-    //     }
-    // }
 
     private static bool IsLibInitialized()
     {

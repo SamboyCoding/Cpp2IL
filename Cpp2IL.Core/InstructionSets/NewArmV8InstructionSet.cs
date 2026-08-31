@@ -47,7 +47,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         if (context is not ConcreteGenericMethodAnalysisContext)
         {
             //Managed method or attr gen => grab raw byte range between a and b
-            var startOfNextFunction = MiscUtils.GetAddressOfNextFunctionStart(context.UnderlyingPointer, binary);
+            var startOfNextFunction = context.AppContext.GetAddressOfNextFunctionStart(context.UnderlyingPointer);
             var count = (int)(startOfNextFunction - context.UnderlyingPointer);
 
             if (startOfNextFunction > 0)
@@ -58,7 +58,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             }
         }
 
-        var result = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(binary, context.UnderlyingPointer);
+        var result = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.AppContext, context.UnderlyingPointer);
         var lastInsn = result.LastValid();
 
         var start = (int)binary.MapVirtualAddressToRaw(context.UnderlyingPointer);
@@ -138,7 +138,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
     public override List<Instruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
-        var insns = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.AppContext.Binary, context.UnderlyingPointer);
+        var insns = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.AppContext, context.UnderlyingPointer);
 
         if (adrpOffsets == null) // initializers for ThreadStatic fields only run on the first thread
             adrpOffsets = new();

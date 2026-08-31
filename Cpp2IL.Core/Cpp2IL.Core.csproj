@@ -49,7 +49,7 @@
         <!--For X86/X64 disassembly-->
         <PackageReference Include="Iced" Version="1.21.0" />
         
-        <!--For ARM64 and ARMv7 disassembly. Future: Remove once disarm is stable and move ARMv7 to CapstoneSharp by 6pak-->
+        <!--For ARMv7 disassembly only. Future: replace with a disarm equivalent-->
         <PackageReference Include="AssetRipper.Gee.External.Capstone" Version="2.3.2" />
         
         <!--Not used at runtime, but needed for the build-->

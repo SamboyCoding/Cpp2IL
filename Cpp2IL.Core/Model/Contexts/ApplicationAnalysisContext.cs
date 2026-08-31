@@ -93,6 +93,8 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// </summary>
     private BaseKeyFunctionAddresses? _keyFunctionAddresses;
 
+    private readonly ulong[] _allKnownFunctionStarts;
+
     /// <summary>
     /// True if this ApplicationAnalysisContext has finished initialization of all of its child contexts, else false.
     /// </summary>
@@ -131,7 +133,13 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
 
         SystemTypes = new(this);
 
-        MiscUtils.InitFunctionStarts(this);
+        _allKnownFunctionStarts =
+        [
+            .. Metadata.methodDefs.Select(m => m.MethodPointer)
+                .Concat(Binary.ConcreteGenericImplementationsByAddress.Keys)
+                .Concat(Binary.AllCustomAttributeGenerators)
+                .OrderBy(a => a)
+        ];
 
         PopulateMethodsByAddressTable();
 
@@ -317,6 +325,22 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
             Debug.Assert(genericParameter.Owner.MethodOwner is not null);
             return ResolveContextForMethod(genericParameter.Owner.MethodOwner)?.GenericParameters[genericParameter.genericParameterIndexInOwner];
         }
+    }
+
+    /// <summary>
+    /// Returns the virtual address of the first known function start strictly after the given address, or 0 if there is none or it does not map to a raw address.
+    /// </summary>
+    public ulong GetAddressOfNextFunctionStart(ulong current)
+    {
+        var idx = Array.BinarySearch(_allKnownFunctionStarts, current + 1);
+        if (idx < 0)
+            idx = ~idx;
+
+        if (idx >= _allKnownFunctionStarts.Length)
+            return 0;
+
+        var ret = _allKnownFunctionStarts[idx];
+        return Binary.TryMapVirtualAddressToRaw(ret, out _) ? ret : 0;
     }
 
     public BaseKeyFunctionAddresses GetOrCreateKeyFunctionAddresses()

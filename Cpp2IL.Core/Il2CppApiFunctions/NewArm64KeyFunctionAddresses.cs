@@ -78,7 +78,7 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
 
     protected override ulong FindFirstCallTargetInMethod(ulong methodVa)
     {
-        var instructions = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(_appContext.Binary, methodVa, false);
+        var instructions = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(_appContext, methodVa, false);
         var call = instructions.FirstOrDefault(i => i.Mnemonic == Arm64Mnemonic.BL);
         return call.Mnemonic == Arm64Mnemonic.BL ? call.BranchTarget : 0;
     }
@@ -99,7 +99,7 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
         //The last call is to Object::IsInst
 
         Logger.Verbose($"IsInstanceOfType found at 0x{typeIsInstanceOfType.MethodPointer:X}...");
-        var instructions = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(_appContext.Binary, typeIsInstanceOfType.MethodPointer, false);
+        var instructions = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(_appContext, typeIsInstanceOfType.MethodPointer, false);
 
         var lastCall = instructions.LastOrDefault(i => i.Mnemonic == Arm64Mnemonic.BL);
 
@@ -115,7 +115,7 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
 
     protected override ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false)
     {
-        var instructions = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(_appContext.Binary, thunkPtr, false);
+        var instructions = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(_appContext, thunkPtr, false);
 
         var target = prioritiseCall ? Arm64Mnemonic.BL : Arm64Mnemonic.B;
         var matchingCall = instructions.FirstOrDefault(i => i.Mnemonic == target);

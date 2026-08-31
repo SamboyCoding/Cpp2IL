@@ -138,7 +138,7 @@ public static class WriteBarrierRecovery
 
         try
         {
-            foreach (var instruction in X86Utils.GetMethodBodyAtVirtAddressNew(barrier, false, appContext.Binary))
+            foreach (var instruction in X86Utils.GetMethodBodyAtVirtAddressNew(barrier, false, appContext))
             {
                 if (instruction is { Mnemonic: Iced.Intel.Mnemonic.Cmp, Op0Kind: Iced.Intel.OpKind.Memory }
                     && instruction.MemoryIndex == Iced.Intel.Register.None

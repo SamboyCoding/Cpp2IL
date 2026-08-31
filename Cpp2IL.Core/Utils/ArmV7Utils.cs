@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm;
-using LibCpp2IL;
+using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.Utils;
 
@@ -21,9 +21,10 @@ public static class ArmV7Utils
         _armDisassembler = disassembler;
     }
 
-    public static BinarySlice TryGetMethodBodyBytesFast(Il2CppBinary binary, ulong virtAddress, bool isCAGen)
+    public static BinarySlice TryGetMethodBodyBytesFast(ApplicationAnalysisContext appContext, ulong virtAddress, bool isCAGen)
     {
-        var startOfNext = MiscUtils.GetAddressOfNextFunctionStart(virtAddress, binary);
+        var binary = appContext.Binary;
+        var startOfNext = appContext.GetAddressOfNextFunctionStart(virtAddress);
 
         var length = (startOfNext - virtAddress);
         if (isCAGen && length > 50_000)
@@ -42,8 +43,9 @@ public static class ArmV7Utils
         return new BinarySlice(binary, (int)rawStart, (int)(rawStartOfNextMethod - rawStart));
     }
 
-    public static List<ArmInstruction> GetArmV7MethodBodyAtVirtualAddress(Il2CppBinary binary, ulong virtAddress, bool managed = true, int count = -1)
+    public static List<ArmInstruction> GetArmV7MethodBodyAtVirtualAddress(ApplicationAnalysisContext appContext, ulong virtAddress, bool managed = true, int count = -1)
     {
+        var binary = appContext.Binary;
         if (_armDisassembler == null)
             InitArmDecompilation();
 
@@ -52,7 +54,7 @@ public static class ArmV7Utils
         //But we can find the start of the next one! (If managed)
         if (managed)
         {
-            var startOfNext = MiscUtils.GetAddressOfNextFunctionStart(virtAddress, binary);
+            var startOfNext = appContext.GetAddressOfNextFunctionStart(virtAddress);
 
             //We have to fall through to default behavior for the last method because we cannot accurately pinpoint its end
             if (startOfNext > 0)

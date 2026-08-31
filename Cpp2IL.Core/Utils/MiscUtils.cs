@@ -1,17 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
-using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.Utils;
 
 public static class MiscUtils
 {
-    private static List<ulong>? _allKnownFunctionStarts;
-
     public static readonly List<char> InvalidPathChars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
 
     public static readonly HashSet<string> InvalidPathElements =
@@ -39,41 +35,6 @@ public static class MiscUtils
         "LPT8",
         "LPT9"
     ];
-
-    internal static void Reset()
-    {
-        _allKnownFunctionStarts = null;
-    }
-
-    internal static string[] GetGenericParams(string input)
-    {
-        if (!input.Contains('<'))
-            return input.Split(',');
-
-        var depth = 0;
-        var ret = new List<string>();
-        var sb = new StringBuilder();
-
-        foreach (var c in input)
-        {
-            if (c == '<')
-                depth++;
-            if (c == '>')
-                depth--;
-            if (depth == 0 && c == ',')
-            {
-                ret.Add(sb.ToString());
-                sb.Clear();
-                continue;
-            }
-
-            sb.Append(c);
-        }
-
-        ret.Add(sb.ToString());
-
-        return ret.ToArray();
-    }
 
     public static string? TryGetLiteralAt(Il2CppBinary theDll, ulong rawAddr)
     {
@@ -140,67 +101,6 @@ public static class MiscUtils
             _ => throw new($"ReinterpretBytes: Cannot get byte array from {original} (type {original.GetType()}")
         };
 
-    //TODO: Refactor this out to a property of ApplicationAnalysisContext
-    internal static void InitFunctionStarts(ApplicationAnalysisContext appContext)
-    {
-        _allKnownFunctionStarts = appContext.Metadata.methodDefs.Select(m => m.MethodPointer)
-            .Concat(appContext.Binary.ConcreteGenericImplementationsByAddress.Keys)
-            .Concat(SharedState.AttributeGeneratorStarts)
-            .ToList();
-
-        //Sort in ascending order
-        _allKnownFunctionStarts.Sort();
-    }
-    //TODO: End
-
-    public static ulong GetAddressOfNextFunctionStart(ulong current, Il2CppBinary binary)
-    {
-        if (_allKnownFunctionStarts == null)
-            throw new("Function starts not initialized!");
-
-        //Binary-search-like approach
-        var lower = 0;
-        var upper = _allKnownFunctionStarts!.Count - 1;
-
-        var ret = ulong.MaxValue;
-        while (upper - lower >= 1)
-        {
-            var pos = (upper - lower) / 2 + lower;
-
-            if (upper - lower == 1)
-                pos = lower;
-
-            var ptr = _allKnownFunctionStarts[pos];
-            if (ptr > current)
-            {
-                //This matches what we want to look for
-                if (ptr < ret)
-                    //This is a better "next method" pointer
-                    ret = ptr;
-
-                //Either way, we're above our current address now, so search lower in the list
-                upper = pos;
-            }
-            else
-            {
-                //Not what we want, so move up in the list
-                lower = pos + 1;
-            }
-        }
-
-        ret = _allKnownFunctionStarts[lower];
-        if (ret < current)
-            ret = _allKnownFunctionStarts[upper];
-
-        if (ret <= current && upper == _allKnownFunctionStarts.Count - 1)
-            return 0;
-
-        if (!binary.TryMapVirtualAddressToRaw(ret, out _))
-            return 0;
-
-        return ret;
-    }
-
     public static void ExecuteSerial<T>(IEnumerable<T> enumerable, Action<T> what)
     {
         foreach (var item in enumerable)
@@ -243,42 +143,6 @@ public static class MiscUtils
         "EOSBootstrapper.exe",
         "start_protected_game.exe"
     ];
-
-    public static string AnalyzeStackTracePointers(ulong[] pointers)
-    {
-        // var pointers = new ulong[] {0x52e6ba0, 0x52ad3a0, 0x11b09714, 0x40a990c, 0xd172c68, 0xa2c0514, 0x35ea45c, 0x1fc43208};
-
-        var methodsSortedByPointer = Cpp2IlApi.CurrentAppContext!.Metadata.methodDefs.ToList();
-        methodsSortedByPointer.SortByExtractedKey(m => m.MethodPointer);
-
-        var genericMethodsSortedByPointer = Cpp2IlApi.CurrentAppContext.Binary.ConcreteGenericImplementationsByAddress.ToList();
-        genericMethodsSortedByPointer.SortByExtractedKey(m => m.Key);
-
-        var stack = pointers.Select(p =>
-        {
-            var method = methodsSortedByPointer.LastOrDefault(m => m.MethodPointer <= p);
-            var genericMethod = genericMethodsSortedByPointer.LastOrDefault(m => m.Key <= p);
-
-            if (method == null || genericMethod.Key == 0)
-                return "<unknown method>";
-
-            var distanceNormal = p - method.MethodPointer;
-            var distanceGeneric = p - genericMethod.Key;
-
-            if (Math.Min(distanceGeneric, distanceNormal) > 0x50000)
-                return "<unknown method>";
-
-            if (distanceGeneric < distanceNormal)
-            {
-                var actualGen = genericMethod.Value.First();
-                return actualGen.DeclaringType.DeclaringAssembly!.Name + " ## " + actualGen + "(" + string.Join(", ", actualGen.BaseMethod.Parameters!.ToList()) + ")";
-            }
-
-            return method.DeclaringType!.DeclaringAssembly!.Name + " ## " + method.DeclaringType.FullName + "::" + method.Name + "(" + string.Join(", ", method.Parameters!.ToList()) + ")";
-        });
-
-        return string.Join("\n", stack);
-    }
 
     /// <summary>
     /// Returns the input string with any invalid path characters removed.

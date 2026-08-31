@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Gee.External.Capstone.Arm;
-using Gee.External.Capstone.Arm64;
 using Iced.Intel;
 using Instruction = Iced.Intel.Instruction;
 
@@ -28,16 +27,6 @@ public static class MiscExtensions
     public static ArmRegister? MemoryBase(this ArmInstruction instruction) => MemoryOperand(instruction)?.Memory.Base;
     public static ArmRegister? MemoryIndex(this ArmInstruction instruction) => MemoryOperand(instruction)?.Memory.Index;
     public static int MemoryOffset(this ArmInstruction instruction) => MemoryOperand(instruction)?.Memory.Displacement ?? 0;
-
-    //Arm64 Extensions
-    public static Arm64Register? RegisterSafe(this Arm64Operand operand) => operand.Type != Arm64OperandType.Register ? null : operand.Register;
-    public static bool IsImmediate(this Arm64Operand operand) => operand.Type is Arm64OperandType.CImmediate or Arm64OperandType.Immediate;
-    public static long ImmediateSafe(this Arm64Operand operand) => operand.IsImmediate() ? operand.Immediate : 0;
-    internal static Arm64Operand? MemoryOperand(this Arm64Instruction instruction) => instruction.Details.Operands.FirstOrDefault(a => a.Type == Arm64OperandType.Memory);
-
-    public static Arm64Register? MemoryBase(this Arm64Instruction instruction) => instruction.MemoryOperand()?.Memory.Base;
-    public static Arm64Register? MemoryIndex(this Arm64Instruction instruction) => instruction.MemoryOperand()?.Memory.Index;
-    public static int MemoryOffset(this Arm64Instruction instruction) => instruction.MemoryOperand()?.Memory.Displacement ?? 0;
 
     public static bool IsConditionalMove(this Instruction instruction)
     {

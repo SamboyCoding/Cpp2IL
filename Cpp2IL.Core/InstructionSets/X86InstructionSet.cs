@@ -37,7 +37,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         }
     }
 
-    public override BinarySlice GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator) => X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator, context.AppContext.Binary);
+    public override BinarySlice GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator) => X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator, context.AppContext);
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance() => new X86KeyFunctionAddresses();
 
@@ -171,7 +171,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         Iced.Intel.InstructionList body;
         try
         {
-            body = X86Utils.GetMethodBodyAtVirtAddressNew(address, true, context.Binary);
+            body = X86Utils.GetMethodBodyAtVirtAddressNew(address, true, context);
         }
         catch
         {

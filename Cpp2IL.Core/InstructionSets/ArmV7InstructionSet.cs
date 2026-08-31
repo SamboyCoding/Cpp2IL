@@ -13,11 +13,11 @@ public class ArmV7InstructionSet : Cpp2IlInstructionSet
 {
     public override BinarySlice GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
-        var slice = ArmV7Utils.TryGetMethodBodyBytesFast(context.AppContext.Binary, context.UnderlyingPointer, isAttributeGenerator);
+        var slice = ArmV7Utils.TryGetMethodBodyBytesFast(context.AppContext, context.UnderlyingPointer, isAttributeGenerator);
         if (slice.Length > 0)
             return slice;
 
-        var instructions = ArmV7Utils.GetArmV7MethodBodyAtVirtualAddress(context.AppContext.Binary, context.UnderlyingPointer);
+        var instructions = ArmV7Utils.GetArmV7MethodBodyAtVirtualAddress(context.AppContext, context.UnderlyingPointer);
 
         return new BinarySlice(instructions.SelectMany(i => i.Bytes).ToArray());
     }
@@ -32,17 +32,13 @@ public class ArmV7InstructionSet : Cpp2IlInstructionSet
         return [];
     }
 
-    public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance()
-    {
-        //TODO Fix
-        return new Arm64KeyFunctionAddresses();
-    }
+    public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance() => new ArmV7KeyFunctionAddresses();
 
     public override string PrintAssembly(MethodAnalysisContext context)
     {
         var sb = new StringBuilder();
 
-        var instructions = ArmV7Utils.GetArmV7MethodBodyAtVirtualAddress(context.AppContext.Binary, context.UnderlyingPointer);
+        var instructions = ArmV7Utils.GetArmV7MethodBodyAtVirtualAddress(context.AppContext, context.UnderlyingPointer);
 
         var first = true;
         foreach (var instruction in instructions)

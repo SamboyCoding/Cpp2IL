@@ -75,7 +75,11 @@ public static class ContextToTypeSignature
 
     public static ArrayTypeSignature ToTypeSignature(this ArrayTypeAnalysisContext context)
     {
-        return context.ElementType.ToTypeSignature().MakeArrayTypeWithLowerBounds(context.Rank);
+        var result = new ArrayTypeSignature(context.ElementType.ToTypeSignature(), context.Rank);
+        for (var i = 0; i < context.Rank; i++)
+            result.Dimensions[i] = new(null, 0);
+
+        return result;
     }
 
     public static PinnedTypeSignature ToTypeSignature(this PinnedTypeAnalysisContext context)

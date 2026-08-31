@@ -60,18 +60,19 @@ public static class X86Utils
         return Iterate(context.RawBytes.AsSpan(), context.UnderlyingPointer, context.AppContext.Binary.is32Bit);
     }
 
-    public static BinarySlice GetRawManagedOrCaCacheGenMethodBody(ulong ptr, bool isCaGen, Il2CppBinary binary)
+    public static BinarySlice GetRawManagedOrCaCacheGenMethodBody(ulong ptr, bool isCaGen, ApplicationAnalysisContext appContext)
     {
+        var binary = appContext.Binary;
         var rawAddr = binary.MapVirtualAddressToRaw(ptr, false);
 
         if (rawAddr <= 0)
             return BinarySlice.Empty;
 
-        var virtStartNextFunc = MiscUtils.GetAddressOfNextFunctionStart(ptr, binary);
+        var virtStartNextFunc = appContext.GetAddressOfNextFunctionStart(ptr);
 
         if (virtStartNextFunc == 0 || (isCaGen && virtStartNextFunc - ptr > 50000))
         {
-            GetMethodBodyAtVirtAddressNew(ptr, false, binary, out var ret);
+            GetMethodBodyAtVirtAddressNew(ptr, false, appContext, out var ret);
             return ret;
         }
 
@@ -80,7 +81,7 @@ public static class X86Utils
         if (ra2 <= 0)
         {
             //Don't have a known end point => fall back
-            GetMethodBodyAtVirtAddressNew(ptr, false, binary, out var ret);
+            GetMethodBodyAtVirtAddressNew(ptr, false, appContext, out var ret);
             return ret;
         }
 
@@ -89,7 +90,7 @@ public static class X86Utils
         if (startOfNextFunc < rawAddr)
         {
             Logger.WarnNewline($"StartOfNextFunc returned va 0x{virtStartNextFunc:X}, raw address 0x{startOfNextFunc:X}, for raw address 0x{rawAddr:X}. It should be more than raw address. Falling back to manual, slow, decompiler-based approach.");
-            GetMethodBodyAtVirtAddressNew(ptr, false, binary, out var ret);
+            GetMethodBodyAtVirtAddressNew(ptr, false, appContext, out var ret);
             return ret;
         }
 
@@ -100,7 +101,7 @@ public static class X86Utils
         if (lastPos >= rawBinary.Length)
         {
             Logger.WarnNewline($"StartOfNextFunc returned va 0x{virtStartNextFunc:X}, raw address 0x{startOfNextFunc:X}, for raw address 0x{rawAddr:X}. LastPos should be less than the raw array length. Falling back to manual, slow, decompiler-based approach.");
-            GetMethodBodyAtVirtAddressNew(ptr, false, binary, out var ret);
+            GetMethodBodyAtVirtAddressNew(ptr, false, appContext, out var ret);
             return ret;
         }
 
@@ -149,12 +150,13 @@ public static class X86Utils
         return foundTable;
     }
 
-    public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek, Il2CppBinary binary, int peekLength = DefaultPeekLength) => GetMethodBodyAtVirtAddressNew(addr, peek, binary, out _, peekLength);
+    public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek, ApplicationAnalysisContext appContext, int peekLength = DefaultPeekLength) => GetMethodBodyAtVirtAddressNew(addr, peek, appContext, out _, peekLength);
 
     public const int DefaultPeekLength = 50;
 
-    public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek, Il2CppBinary binary, out BinarySlice rawBytes, int peekLength = DefaultPeekLength)
+    public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek, ApplicationAnalysisContext appContext, out BinarySlice rawBytes, int peekLength = DefaultPeekLength)
     {
+        var binary = appContext.Binary;
         var ret = new InstructionList();
         var rawAddr = binary.MapVirtualAddressToRaw(addr);
 
@@ -168,7 +170,7 @@ public static class X86Utils
         var functionStart = addr;
         var functionLength = 0;
         var rawBinary = binary.GetRawBinaryContent();
-        var startOfNextFunc = MiscUtils.GetAddressOfNextFunctionStart(addr, binary);
+        var startOfNextFunc = appContext.GetAddressOfNextFunctionStart(addr);
         var startOffset = (int)rawAddr;
         var con = true;
 

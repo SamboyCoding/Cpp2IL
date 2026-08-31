@@ -716,12 +716,6 @@ internal static class Program
             Logger.WarnNewline("No output format requested, so not outputting anything. The il2cpp game loaded properly though! (Hint: You probably want to specify an output format, try --output-as)");
         }
 
-        // if (runtimeArgs.EnableMetadataGeneration)
-        // Cpp2IlApi.GenerateMetadataForAllAssemblies(runtimeArgs.OutputRootDirectory);
-
-        // if (runtimeArgs.EnableAnalysis)
-        // Cpp2IlApi.PopulateConcreteImplementations();
-
         CleanupExtractedFiles();
 
         Cpp2IlPluginManager.CallOnFinish();

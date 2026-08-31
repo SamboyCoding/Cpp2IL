@@ -69,10 +69,10 @@ public static class AsmResolverAssemblyPopulator
     private static TypeSignature GetTypeSigFromAttributeArg(BaseCustomAttributeParameter parameter) =>
         parameter switch
         {
-            CustomAttributePrimitiveParameter primitiveParameter => AsmResolverUtils.GetPrimitiveTypeDef(primitiveParameter.PrimitiveType).ToTypeSignature(),
+            CustomAttributePrimitiveParameter primitiveParameter => parameter.Owner.Constructor.AppContext.SystemTypes.GetPrimitive(primitiveParameter.PrimitiveType).ToTypeSignature(),
             CustomAttributeEnumParameter enumParameter => enumParameter.EnumTypeContext.ToTypeSignature(),
-            BaseCustomAttributeTypeParameter => TypeDefinitionsAsmResolver.Type.ToTypeSignature(),
-            CustomAttributeArrayParameter arrayParameter => AsmResolverUtils.GetPrimitiveTypeDef(arrayParameter.ArrType).ToTypeSignature().MakeSzArrayType(),
+            BaseCustomAttributeTypeParameter => parameter.Owner.Constructor.AppContext.SystemTypes.SystemTypeType.ToTypeSignature(),
+            CustomAttributeArrayParameter arrayParameter => parameter.Owner.Constructor.AppContext.SystemTypes.GetPrimitive(arrayParameter.ArrType).ToTypeSignature().MakeSzArrayType(),
             _ => throw new ArgumentException("Unknown custom attribute parameter type: " + parameter.GetType().FullName)
         };
 
@@ -148,16 +148,18 @@ public static class AsmResolverAssemblyPopulator
         try
 #endif
         {
+            var systemTypes = parameter.Owner.Constructor.AppContext.SystemTypes;
+            
             return parameter switch
             {
-                CustomAttributePrimitiveParameter primitiveParameter when boxIfNeeded => new(TypeDefinitionsAsmResolver.Object.ToTypeSignature(), new BoxedArgument(GetTypeSigFromAttributeArg(primitiveParameter), primitiveParameter.PrimitiveValue)),
+                CustomAttributePrimitiveParameter primitiveParameter when boxIfNeeded => new(systemTypes.SystemObjectType.ToTypeSignature(), new BoxedArgument(GetTypeSigFromAttributeArg(primitiveParameter), primitiveParameter.PrimitiveValue)),
                 CustomAttributePrimitiveParameter primitiveParameter => new(GetTypeSigFromAttributeArg(primitiveParameter), primitiveParameter.PrimitiveValue),
                 
-                CustomAttributeEnumParameter enumParameter when boxIfNeeded => new(TypeDefinitionsAsmResolver.Object.ToTypeSignature(), new BoxedArgument(GetTypeSigFromAttributeArg(enumParameter), enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue)),
+                CustomAttributeEnumParameter enumParameter when boxIfNeeded => new(systemTypes.SystemObjectType.ToTypeSignature(), new BoxedArgument(GetTypeSigFromAttributeArg(enumParameter), enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue)),
                 CustomAttributeEnumParameter enumParameter => new(GetTypeSigFromAttributeArg(enumParameter), enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue),
                 
-                //BaseCustomAttributeTypeParameter typeParameter when boxIfNeeded => new(TypeDefinitionsAsmResolver.Object.ToTypeSignature(), new BoxedArgument(GetTypeSigFromAttributeArg(parentAssembly, typeParameter), typeParameter.TypeContext?.ToTypeSignature(parentAssembly.ManifestModule!))),
-                BaseCustomAttributeTypeParameter typeParameter => new(TypeDefinitionsAsmResolver.Type.ToTypeSignature(), typeParameter.TypeContext?.ToTypeSignature()),
+                //BaseCustomAttributeTypeParameter typeParameter when boxIfNeeded => new(systemTypes.SystemObjectType.ToTypeSignature(), new BoxedArgument(GetTypeSigFromAttributeArg(parentAssembly, typeParameter), typeParameter.TypeContext?.ToTypeSignature(parentAssembly.ManifestModule!))),
+                BaseCustomAttributeTypeParameter typeParameter => new(systemTypes.SystemTypeType.ToTypeSignature(), typeParameter.TypeContext?.ToTypeSignature()),
                 
                 CustomAttributeArrayParameter arrayParameter => BuildArrayArgument(arrayParameter),
                 _ => throw new ArgumentException("Unknown custom attribute parameter type: " + parameter.GetType().FullName)

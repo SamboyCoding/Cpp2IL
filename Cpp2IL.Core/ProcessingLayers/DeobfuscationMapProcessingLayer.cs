@@ -12,8 +12,8 @@ namespace Cpp2IL.Core.ProcessingLayers;
 
 public class DeobfuscationMapProcessingLayer : Cpp2IlProcessingLayer
 {
-    private static bool _logUnknownTypes;
-    private static int _numUnknownTypes;
+    private bool _logUnknownTypes;
+    private int _numUnknownTypes;
 
     public override string Name => "Deobfuscation Map";
     public override string Id => "deobfmap";
@@ -74,7 +74,7 @@ public class DeobfuscationMapProcessingLayer : Cpp2IlProcessingLayer
         Deobfuscate(appContext, deobfMapContent);
     }
 
-    private static void Deobfuscate(ApplicationAnalysisContext appContext, string deobfMap)
+    private void Deobfuscate(ApplicationAnalysisContext appContext, string deobfMap)
     {
         var lines = deobfMap.Split('\n');
         _numUnknownTypes = 0;
@@ -96,7 +96,7 @@ public class DeobfuscationMapProcessingLayer : Cpp2IlProcessingLayer
         }
     }
 
-    private static void ProcessLine(ApplicationAnalysisContext appContext, string line)
+    private void ProcessLine(ApplicationAnalysisContext appContext, string line)
     {
         //Obfuscated;deobfuscated[;priority]
         var split = line.Split(';');
@@ -109,7 +109,7 @@ public class DeobfuscationMapProcessingLayer : Cpp2IlProcessingLayer
         ProcessRemapping(appContext, obfuscated, deobfuscated);
     }
 
-    private static void ProcessRemapping(ApplicationAnalysisContext appContext, string obfuscated, string deobfuscated)
+    private void ProcessRemapping(ApplicationAnalysisContext appContext, string obfuscated, string deobfuscated)
     {
         if (obfuscated.Contains("::"))
         {
@@ -166,7 +166,7 @@ public class DeobfuscationMapProcessingLayer : Cpp2IlProcessingLayer
         // Logger.VerboseNewline($"Renamed {originalName} to {matchingType.FullName}", "DeobfuscationMapProcessingLayer");
     }
 
-    private static TypeAnalysisContext? GetTypeByObfName(ApplicationAnalysisContext appContext, string obfuscated)
+    private TypeAnalysisContext? GetTypeByObfName(ApplicationAnalysisContext appContext, string obfuscated)
     {
         if (obfuscated.StartsWith("."))
             //If there's no namespace, strip the leading dot

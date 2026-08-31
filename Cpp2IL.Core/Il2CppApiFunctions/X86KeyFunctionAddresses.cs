@@ -104,7 +104,7 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
         //The last call is to Object::IsInst
 
         Logger.Verbose($"IsInstanceOfType found at 0x{typeIsInstanceOfType.MethodPointer:X}...");
-        var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(typeIsInstanceOfType.MethodPointer, true, _appContext.Binary);
+        var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(typeIsInstanceOfType.MethodPointer, true, _appContext);
 
         var lastCall = instructions.LastOrDefault(i => i.Mnemonic == Mnemonic.Call);
 
@@ -131,7 +131,7 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
             if (method == null || method.MethodPointer == 0)
                 continue;
 
-            var body = X86Utils.GetMethodBodyAtVirtAddressNew(method.MethodPointer, false, _appContext.Binary);
+            var body = X86Utils.GetMethodBodyAtVirtAddressNew(method.MethodPointer, false, _appContext);
 
             foreach (var target in FindWriteBarrierCalls(body).Distinct())
                 votes[target] = (votes.TryGetValue(target, out var count) ? count : 0) + 1;
@@ -213,7 +213,7 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
 
     protected override ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false)
     {
-        var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(thunkPtr, true, _appContext.Binary);
+        var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(thunkPtr, true, _appContext);
 
         var target = prioritiseCall ? Mnemonic.Call : Mnemonic.Jmp;
         var matchingCall = instructions.FirstOrDefault(i => i.Mnemonic == target);
@@ -229,7 +229,7 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
     
     protected override ulong FindFirstCallTargetInMethod(ulong methodVa)
     {
-        var disasm = X86Utils.GetMethodBodyAtVirtAddressNew(methodVa, false, _appContext.Binary);
+        var disasm = X86Utils.GetMethodBodyAtVirtAddressNew(methodVa, false, _appContext);
         return disasm.FirstOrDefault(i => i.Mnemonic == Mnemonic.Call).NearBranchTarget;
     }
 

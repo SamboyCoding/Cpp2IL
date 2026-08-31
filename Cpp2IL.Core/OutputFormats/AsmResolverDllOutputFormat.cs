@@ -26,10 +26,10 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
     protected int TotalMethodCount;
     protected int SuccessfulMethodCount;
 
-    private static readonly ConcurrentDictionary<ModuleDefinition, object> StubLocks = new();
+    private readonly ConcurrentDictionary<ModuleDefinition, object> _stubLocks = new();
 
     //TODO revert this once AsmResolver.CIL stops calling AsmResolver's Importer
-    protected static void FillMethodBodyWithStub(MethodDefinition methodDefinition)
+    protected void FillMethodBodyWithStub(MethodDefinition methodDefinition)
     {
         if (methodDefinition.DeclaringModule is not { } module)
         {
@@ -37,7 +37,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
             return;
         }
 
-        lock (StubLocks.GetOrAdd(module, _ => new object()))
+        lock (_stubLocks.GetOrAdd(module, _ => new object()))
             methodDefinition.ReplaceMethodBodyWithMinimalImplementation();
     }
 
@@ -134,8 +134,6 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         FillAllMethodBodies(context);
 
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
-
-        TypeDefinitionsAsmResolver.Reset();
 
         return ret;
     }
@@ -239,22 +237,18 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
                 managedModule.TopLevelTypes.Add(BuildStubType(il2CppTypeDefinition));
         }
 
-        if (corLib == null)
-        {
-            //We *are* the corlib, so cache defs now
-            TypeDefinitionsAsmResolver.CacheNeededTypeDefinitions();
-        }
-
         //We can get issues with consumers of the API if the base type is not set correctly for value types or enums, so we set it here (as early as possible) if we can
+        var valueType = assemblyContext.AppContext.SystemTypes.SystemValueTypeType.GetExtraData<TypeDefinition>("AsmResolverType");
+        var enumType = assemblyContext.AppContext.SystemTypes.EnumType.GetExtraData<TypeDefinition>("AsmResolverType");
         foreach (var assemblyContextType in assemblyContext.Types)
         {
             if (assemblyContextType.Definition is not { } def || assemblyContextType.GetExtraData<TypeDefinition>("AsmResolverType") is not { } asmResolverType)
                 continue;
 
             if (def.IsValueType)
-                asmResolverType.BaseType = TypeDefinitionsAsmResolver.ValueType;
+                asmResolverType.BaseType = valueType;
             else if (def.IsEnumType)
-                asmResolverType.BaseType = TypeDefinitionsAsmResolver.Enum;
+                asmResolverType.BaseType = enumType;
         }
 
         //Store the managed assembly in the context so we can use it later.
@@ -280,10 +274,6 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 
         //Associate this asm resolve td with the type context
         typeContext.PutExtraData("AsmResolverType", ret);
-
-        //Add to the lookup-by-id table used by the resolver
-        if (typeDef != null)
-            AsmResolverUtils.TypeDefsByIndex[typeDef.TypeIndex] = ret;
 
         return ret;
     }
