@@ -37,7 +37,7 @@ public class V29CustomAttributeTests
         var debuggerDisplayAttribute = type.CustomAttributes!.FirstOrDefault(ca => ca.Constructor.DeclaringType!.FullName == "System.Diagnostics.DebuggerDisplayAttribute");
         Assert.That(debuggerDisplayAttribute, Is.Not.Null);
         Assert.That(debuggerDisplayAttribute!.ConstructorParameters, Has.Count.EqualTo(1));
-        Assert.That(debuggerDisplayAttribute!.ConstructorParameters![0], Is.InstanceOf<CustomAttributePrimitiveParameter>().And.Matches<CustomAttributePrimitiveParameter>(p => p.PrimitiveValue is "Count = {Count}"));
+        Assert.That(debuggerDisplayAttribute.ConstructorParameters[0], Is.InstanceOf<CustomAttributePrimitiveParameter>().And.Matches<CustomAttributePrimitiveParameter>(p => p?.PrimitiveValue is "Count = {Count}"));
     }
 
     [Test]
@@ -51,7 +51,7 @@ public class V29CustomAttributeTests
         var debuggerTypeProxyAttribute = type.CustomAttributes!.FirstOrDefault(ca => ca.Constructor.DeclaringType!.FullName == "System.Diagnostics.DebuggerTypeProxyAttribute");
         Assert.That(debuggerTypeProxyAttribute, Is.Not.Null);
         Assert.That(debuggerTypeProxyAttribute!.ConstructorParameters, Has.Count.EqualTo(1));
-        Assert.That(debuggerTypeProxyAttribute!.ConstructorParameters![0], Is.InstanceOf<CustomAttributeTypeParameter>().And.Property("TypeContext").Property("FullName").EqualTo("System.Collections.Generic.ICollectionDebugView`1"));
+        Assert.That(debuggerTypeProxyAttribute.ConstructorParameters[0], Is.InstanceOf<CustomAttributeTypeParameter>().And.Property("TypeContext").Property("FullName").EqualTo("System.Collections.Generic.ICollectionDebugView`1"));
     }
 
     [Test]
@@ -59,7 +59,7 @@ public class V29CustomAttributeTests
     {
         var context = Cpp2IlApi.CurrentAppContext!;
         var type = context.GetAssemblyByName("mscorlib")!.GetTypeByFullName("System.Array")!;
-        var property = type.Properties!.First(p => p.Name == "Length");
+        var property = type.Properties.First(p => p.Name == "Length");
         
         Assert.DoesNotThrow(() => property.Getter!.AnalyzeCustomAttributeData());
         
@@ -69,10 +69,10 @@ public class V29CustomAttributeTests
         Assert.That(reliabilityContractAttribute!.ConstructorParameters, Has.Count.EqualTo(2));
         Assert.Multiple(() =>
         {
-            Assert.That(reliabilityContractAttribute!.ConstructorParameters![0], Is.InstanceOf<CustomAttributeEnumParameter>().And.Property("EnumTypeContext").Property("FullName").EqualTo("System.Runtime.ConstrainedExecution.Consistency"));
-            Assert.That(reliabilityContractAttribute!.ConstructorParameters![0], Is.InstanceOf<CustomAttributeEnumParameter>().And.Matches<CustomAttributeEnumParameter>(p => p.UnderlyingPrimitiveParameter is {PrimitiveValue: 3 /* Consistency.WillNotCorruptState */}));
-            Assert.That(reliabilityContractAttribute!.ConstructorParameters![1], Is.InstanceOf<CustomAttributeEnumParameter>().And.Property("EnumTypeContext").Property("FullName").EqualTo("System.Runtime.ConstrainedExecution.Cer"));
-            Assert.That(reliabilityContractAttribute!.ConstructorParameters![1], Is.InstanceOf<CustomAttributeEnumParameter>().And.Matches<CustomAttributeEnumParameter>(p => p.UnderlyingPrimitiveParameter is {PrimitiveValue: 2 /* Cer.Success */}));
+            Assert.That(reliabilityContractAttribute.ConstructorParameters[0], Is.InstanceOf<CustomAttributeEnumParameter>().And.Property("EnumTypeContext").Property("FullName").EqualTo("System.Runtime.ConstrainedExecution.Consistency"));
+            Assert.That(reliabilityContractAttribute.ConstructorParameters[0], Is.InstanceOf<CustomAttributeEnumParameter>().And.Matches<CustomAttributeEnumParameter>(p => p?.UnderlyingPrimitiveParameter is {PrimitiveValue: 3 /* Consistency.WillNotCorruptState */}));
+            Assert.That(reliabilityContractAttribute.ConstructorParameters[1], Is.InstanceOf<CustomAttributeEnumParameter>().And.Property("EnumTypeContext").Property("FullName").EqualTo("System.Runtime.ConstrainedExecution.Cer"));
+            Assert.That(reliabilityContractAttribute.ConstructorParameters[1], Is.InstanceOf<CustomAttributeEnumParameter>().And.Matches<CustomAttributeEnumParameter>(p => p?.UnderlyingPrimitiveParameter is {PrimitiveValue: 2 /* Cer.Success */}));
         });
     }
 
@@ -90,8 +90,8 @@ public class V29CustomAttributeTests
         Assert.That(assetFileNameExtensionAttribute!.ConstructorParameters, Has.Count.EqualTo(2));
         Assert.Multiple(() =>
         {
-            Assert.That(assetFileNameExtensionAttribute!.ConstructorParameters![0], Is.InstanceOf<CustomAttributePrimitiveParameter>().And.Matches<CustomAttributePrimitiveParameter>(p => p.PrimitiveValue is "guiskin"));
-            Assert.That(assetFileNameExtensionAttribute!.ConstructorParameters![1], Is.InstanceOf<CustomAttributeArrayParameter>().And.Matches<CustomAttributeArrayParameter>(p => p.ArrayElements.Count == 0 && p.ArrType == Il2CppTypeEnum.IL2CPP_TYPE_STRING));
+            Assert.That(assetFileNameExtensionAttribute.ConstructorParameters[0], Is.InstanceOf<CustomAttributePrimitiveParameter>().And.Matches<CustomAttributePrimitiveParameter>(p => p?.PrimitiveValue is "guiskin"));
+            Assert.That(assetFileNameExtensionAttribute.ConstructorParameters[1], Is.InstanceOf<CustomAttributeArrayParameter>().And.Matches<CustomAttributeArrayParameter>(p => p?.ArrayElements.Count == 0 && p.ArrType == Il2CppTypeEnum.IL2CPP_TYPE_STRING));
         });
     }
 
@@ -109,15 +109,15 @@ public class V29CustomAttributeTests
         Assert.Multiple(() =>
         {
             Assert.That(attributeUsageAttribute!.ConstructorParameters, Has.Count.EqualTo(1)); //But we don't care to check the value of this parameter, just that it's there.
-            Assert.That(attributeUsageAttribute!.Properties, Has.Count.EqualTo(1));
+            Assert.That(attributeUsageAttribute.Properties, Has.Count.EqualTo(1));
         });
 
-        var firstProp = attributeUsageAttribute!.Properties![0];
+        var firstProp = attributeUsageAttribute!.Properties[0];
         Assert.That(firstProp, Is.Not.Null);
         Assert.Multiple(() =>
         {
             Assert.That(firstProp.Property, Is.InstanceOf<PropertyAnalysisContext>().And.Property("Name").EqualTo("Inherited"));
-            Assert.That(firstProp.Value, Is.InstanceOf<CustomAttributePrimitiveParameter>().And.Matches<CustomAttributePrimitiveParameter>(p => p.PrimitiveValue is false));
+            Assert.That(firstProp.Value, Is.InstanceOf<CustomAttributePrimitiveParameter>().And.Matches<CustomAttributePrimitiveParameter>(p => p?.PrimitiveValue is false));
         });
     }
 }

@@ -106,12 +106,12 @@ jobs:
             -   name: Build all
                 run: dotnet build -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
             -   name: Run Tests
-                run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=lcov /p:TestingPlatformDotnetTestSupport=true /p:CoverletOutput='./lcov.info' /p:ExcludeByAttribute="LibCpp2IL.Coverage.NoCoverageAttribute"
+                run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --coverlet --coverlet-output-format lcov --coverlet-exclude-by-attribute "LibCpp2IL.Coverage.NoCoverageAttribute"
             -   name: Upload Coverage
                 uses: coverallsapp/github-action@v2.3.8
                 with:
                     github-token: ${{ secrets.GITHUB_TOKEN }}
-                    files: ./Cpp2IL.Core.Tests/lcov.info ./LibCpp2ILTests/lcov.info
+                    files: ./TestResults/*.info
             -   name: Publish StableNameDotNet
                 if: github.event_name == 'push'
                 run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./StableNameDotNet/bin/Release/*.nupkg

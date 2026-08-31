@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using LibCpp2IL;
+#if DEBUG
+using System.Diagnostics;
+#endif
 
 namespace Cpp2IL.Core.Utils;
 
