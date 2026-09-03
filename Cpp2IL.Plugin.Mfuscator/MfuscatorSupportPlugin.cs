@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using AssetRipper.Primitives;
 using Cpp2IL.Core.Api;
@@ -11,28 +11,158 @@ namespace Cpp2IL.Plugin.Mfuscator;
 public class MfuscatorSupportPlugin : Cpp2IlPlugin
 {
     private const int MaxHeaderSize = 480; //somewhat arbitrary
+    private const int MinHeaderWords = 8;
+    private const int MinOffsetDelta = 0x10;
+    private const int MaxOffsetDelta = 0x40;
+    private const int MaxLayoutSearchResults = 65536;
+    private static readonly bool[] BothSigns = [true, false];
 
-    private const int StringLiteralsSectionIndex = 0;
-    private const int StringLiteralsDataSectionIndex = 1;
-    private const int StringsSectionIndex = 2;
-    private const int PropertiesSectionIndex = 4;
-    private const int MethodsSectionIndex = 5;
-    private const int FieldsSectionIndex = 11;
+    private enum Section
+    {
+        StringLiterals,
+        StringLiteralData,
+        Strings,
+        Events,
+        Properties,
+        Methods,
+        ParameterDefaultValues,
+        FieldDefaultValues,
+        FieldAndParameterDefaultValueData,
+        FieldMarshaledSizes,
+        Parameters,
+        Fields,
+        GenericParameters,
+        GenericParameterConstraints,
+        GenericContainers,
+        NestedTypes,
+        Interfaces,
+        VtableMethods,
+        InterfaceOffsets,
+        TypeDefinitions,
+        TypeInlineArrays,
+        RgctxEntries,
+        Images,
+        Assemblies,
+        MetadataUsageLists,
+        MetadataUsagePairs,
+        FieldRefs,
+        ReferencedAssemblies,
+        AttributesInfo,
+        AttributeTypes,
+        AttributeData,
+        AttributeDataRange,
+        UnresolvedVirtualCallParameterTypes,
+        UnresolvedVirtualCallParameterRanges,
+        WindowsRuntimeTypeNames,
+        WindowsRuntimeStrings,
+        ExportedTypeDefinitions,
+        MethodSpecsOnGenericType,
+        GenericMethodSpecsOnType,
+        MethodSpecs,
+        GenericMethodFunctionsDefinitions,
+        GenericMethodFunctionsDefinitionsWithAdjustor,
+        InvokerIndices,
+        RgctxRanges,
+        RgctxValues,
+        StaticConstructorTypeIndices,
+    }
+
+    private sealed class MetadataLayout
+    {
+        public readonly byte Version;
+        public readonly int BytesPerSectionHeaderField;
+        public readonly Section[] Sections;
+        public readonly Dictionary<Section, int> RecordSizes;
+
+        public int SectionCount => Sections.Length;
+        public int OriginalHeaderSize => 8 + SectionCount * BytesPerSectionHeaderField; //magic + version + one field per section
+        public int IndexOf(Section section) => Array.IndexOf(Sections, section);
+
+        public MetadataLayout(byte version, UnityVersion unityVersion)
+        {
+            Version = version;
+            BytesPerSectionHeaderField = version >= 38 ? 12 : 8;
+
+            List<Section> sections =
+            [
+                Section.StringLiterals, Section.StringLiteralData, Section.Strings, Section.Events, Section.Properties, Section.Methods,
+                Section.ParameterDefaultValues, Section.FieldDefaultValues, Section.FieldAndParameterDefaultValueData, Section.FieldMarshaledSizes,
+                Section.Parameters, Section.Fields, Section.GenericParameters, Section.GenericParameterConstraints, Section.GenericContainers,
+                Section.NestedTypes, Section.Interfaces, Section.VtableMethods, Section.InterfaceOffsets, Section.TypeDefinitions,
+            ];
+
+            if (version >= 104)
+                sections.Add(Section.TypeInlineArrays);
+
+            if (version == 24 && unityVersion.LessThan(2019))
+                sections.Add(Section.RgctxEntries); //pre-24.2
+
+            sections.AddRange([Section.Images, Section.Assemblies]);
+
+            if (version <= 24)
+                sections.AddRange([Section.MetadataUsageLists, Section.MetadataUsagePairs]); //moved to the binary in v27
+
+            sections.AddRange([Section.FieldRefs, Section.ReferencedAssemblies]);
+
+            if (version >= 29)
+                sections.AddRange([Section.AttributeData, Section.AttributeDataRange]);
+            else
+                sections.AddRange([Section.AttributesInfo, Section.AttributeTypes]);
+
+            sections.AddRange([Section.UnresolvedVirtualCallParameterTypes, Section.UnresolvedVirtualCallParameterRanges, Section.WindowsRuntimeTypeNames]);
+
+            if (version >= 27)
+                sections.Add(Section.WindowsRuntimeStrings);
+
+            if (version >= 24)
+                sections.Add(Section.ExportedTypeDefinitions);
+
+            if (version >= 108)
+                sections.AddRange([Section.MethodSpecsOnGenericType, Section.GenericMethodSpecsOnType, Section.MethodSpecs, Section.GenericMethodFunctionsDefinitions, Section.GenericMethodFunctionsDefinitionsWithAdjustor, Section.InvokerIndices, Section.RgctxRanges, Section.RgctxValues, Section.StaticConstructorTypeIndices]);
+
+            Sections = sections.ToArray();
+
+            RecordSizes = new Dictionary<Section, int>
+            {
+                { Section.StringLiterals, version >= 35 ? 4 : 8 }, //Il2CppStringLiteral, loses its length in v35
+                { Section.Events, 24 }, //Il2CppEventDefinition
+                { Section.Properties, 20 }, //Il2CppPropertyDefinition
+                { Section.Methods, version >= 31 ? 36 : 32 }, //Il2CppMethodDefinition, gains returnParameterToken in v31
+                { Section.ParameterDefaultValues, 12 }, //Il2CppParameterDefaultValue
+                { Section.FieldDefaultValues, 12 }, //Il2CppFieldDefaultValue
+                { Section.FieldMarshaledSizes, 12 }, //Il2CppFieldMarshaledSize
+                { Section.Parameters, 12 }, //Il2CppParameterDefinition
+                { Section.Fields, 12 }, //Il2CppFieldDefinition
+                { Section.GenericParameters, 16 }, //Il2CppGenericParameter
+                { Section.GenericParameterConstraints, 4 }, //TypeIndex
+                { Section.GenericContainers, 16 }, //Il2CppGenericContainer
+                { Section.NestedTypes, 4 }, //TypeDefinitionIndex
+                { Section.Interfaces, 4 }, //TypeIndex
+                { Section.VtableMethods, 4 }, //EncodedMethodIndex
+                { Section.InterfaceOffsets, 8 }, //Il2CppInterfaceOffsetPair
+                { Section.TypeDefinitions, version >= 35 ? 84 : 88 }, //Il2CppTypeDefinition, loses elementTypeIndex in v35
+                { Section.Images, 40 }, //Il2CppImageDefinition
+                { Section.Assemblies, 64 }, //Il2CppAssemblyDefinition
+                { Section.FieldRefs, 8 }, //Il2CppFieldRef
+                { Section.ReferencedAssemblies, 4 }, //int32
+                { Section.AttributesInfo, 12 }, //Il2CppCustomAttributeTypeRange
+                { Section.AttributeTypes, 4 }, //TypeIndex
+                { Section.AttributeDataRange, 8 }, //Il2CppCustomAttributeDataRange
+                { Section.UnresolvedVirtualCallParameterTypes, 4 }, //TypeIndex
+                { Section.UnresolvedVirtualCallParameterRanges, 8 }, //Il2CppRange
+                { Section.WindowsRuntimeTypeNames, 8 }, //Il2CppWindowsRuntimeTypeNamePair
+                { Section.ExportedTypeDefinitions, 4 }, //TypeDefinitionIndex
+            };
+        }
+    }
+
+    private delegate bool SectionValidator(ReadOnlySpan<byte> decrypted);
 
     private record struct ReconstructedSection(int OffsetAccordingToHeader, int Length, int Delta)
     {
         public int ActualOffset => OffsetAccordingToHeader + Delta;
     }
 
-    private record struct DeadEnd(int depth, int deadEndNumber, int actualPos, string reason, List<ReconstructedSection> sections) : IComparable<DeadEnd>
-    {
-        public int CompareTo(DeadEnd other)
-        {
-            //inverted so largest first
-            return other.depth.CompareTo(depth);
-        }
-    }
-    
     private class SectionRangeComparer : IEqualityComparer<(int Start, int End)[]>
     {
         public bool Equals((int Start, int End)[]? x, (int Start, int End)[]? y)
@@ -45,459 +175,501 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
             return obj.Aggregate(0, (hash, range) => HashCode.Combine(hash, range.Start, range.End));
         }
     }
-    
+
     public override string Name => "Mfuscator Support"; //more like midfuscator amirite
     public override string Description => "Supports loading metadata files which have been mangled by mfuscator.";
+
     public override void OnLoad()
     {
         RegisterMetadataFixupFunc(TryFixupMfuscatorMetadata);
     }
-    
-    private static void CyclicXorHeader(ReadOnlySpan<byte> data, Span<byte> output, byte xorKey, bool isPlus, int offset = 0)
+
+    private static byte HeaderKeyByte(int xorKey, bool isPlus, int position) => (byte)(isPlus ? xorKey + position : xorKey - position);
+
+    private static void CyclicXorHeader(ReadOnlySpan<byte> data, Span<byte> output, byte xorKey, bool isPlus)
     {
         for (var i = 0; i < data.Length; i++)
-        {
-            var keyByte = (byte) ((isPlus 
-                ? (xorKey + offset + i) 
-                : (xorKey - (offset + i))) & 0xFF);
-            output[i] = (byte) (data[i] ^ keyByte);
-        }
+            output[i] = (byte)(data[i] ^ HeaderKeyByte(xorKey, isPlus, i));
     }
 
-    private static void CyclicXor(ReadOnlySpan<byte> data, Span<byte> output, byte xorKey, bool isPlus, int offset = 0)
+    //minus mode is -(base - i), which is just (-base) + i
+    private static void CyclicXor(ReadOnlySpan<byte> data, Span<byte> output, byte startKey)
     {
         for (var i = 0; i < data.Length; i++)
-        {
-            var keyByte = (byte) ((isPlus 
-                ? (xorKey + offset + i) 
-                : (i - offset - xorKey)) & 0xFF);
-            output[i] = (byte) (data[i] ^ keyByte);
-        }
-    }
-    
-    private static byte DeriveXorKey(Span<byte> encryptedHeader, out bool isPlus)
-    {
-        var valueOffset = 0;
-        while (valueOffset + 4 + 3 < encryptedHeader.Length)
-        {
-            var knownZeroByte = encryptedHeader[valueOffset + 3];
-            var knownZeroByteTwo = encryptedHeader[valueOffset + 4 + 3];
-            
-            var looksLikePlus = ((int) knownZeroByte + 4) % 256 == knownZeroByteTwo;
-            var looksLikeMinus = ((int) knownZeroByte - 4) % 256 == knownZeroByteTwo;
-
-            if (!looksLikeMinus && !looksLikePlus)
-            {
-                valueOffset += 4;
-                continue;
-            }
-            
-            isPlus = looksLikePlus;
-            return (byte) ((isPlus 
-                ? (knownZeroByte - valueOffset - 3)
-                : (knownZeroByte + valueOffset + 3)
-            ) & 0xFF);
-        }
-
-        throw new Exception("Failed to derive XOR key");
+            output[i] = (byte)(data[i] ^ (byte)(startKey + i));
     }
 
-    private byte[] DecryptHeader(Span<byte> encryptedHeader, out byte stringLiteralsXorKey, out bool stringLiteralsIsPlus)
+    private static bool TryDeriveHeaderKey(ReadOnlySpan<byte> data, out byte xorKey, out bool isPlus, out int runWords)
     {
-        var xorKey = DeriveXorKey(encryptedHeader, out var isPlus);
-        
-        Logger.VerboseNewline($"Derived header XOR key: 0x{xorKey:X2}. Header fields use {(isPlus ? "plus" : "minus")} rotation.");
+        xorKey = 0;
+        isPlus = false;
+        runWords = 0;
 
-        //Header size isn't actually known, we just pass the first 480 bytes in
-        //So let's work it out
-        var headerSize = 0;
-        
-        Span<byte> decryptedWord = stackalloc byte[4];
-        while (headerSize < MaxHeaderSize)
+        var fileSize = (uint)data.Length;
+        var maxWords = Math.Min(MaxHeaderSize, data.Length) / 4;
+        var waysToGetBestRun = 0;
+
+        for (var key = 0; key < 256; key++)
         {
-            var encryptedWord = encryptedHeader[headerSize..(headerSize + 4)];
-            CyclicXorHeader(encryptedWord, decryptedWord, xorKey, isPlus, headerSize);
-
-            headerSize += 4;
-
-            //Top byte of every header field is expected to be 0 (ie no metadata offset or length is > 32mb), so when we find a non-zero byte we've reached end of header and grabbed the beginning of the string literal data
-            if (decryptedWord[0] == 0)
+            foreach (var plus in BothSigns)
             {
-                //Still in the header
-                continue;
-            }
-
-            //We've reached the string literal data, so we can stop now. We just need to determine whether the string literals use plus or minus key rotation to know how to decode them later.
-            var stringLiteralsLookLikePlus = ((encryptedWord[0] + 1) & 0xFF) == encryptedWord[1];
-            var stringLiteralsLookLikeMinus = ((encryptedWord[0] - 1) & 0xFF) == encryptedWord[1];
-            
-            if(!stringLiteralsLookLikeMinus && !stringLiteralsLookLikePlus)
-                continue; //not this one.
-            
-            //The first 4 bytes of the string literals section should all be 0, i.e. they should be sequential bytes when a sequential XOR is applied. Check this.
-            var addend = stringLiteralsLookLikePlus ? 1 : (stringLiteralsLookLikeMinus ? -1 : 0);
-            
-            var looksValid = true;
-            for (var i = 0; i < 3; i++)
-            {
-                if(((encryptedWord[i] + addend) & 0xFF) != encryptedWord[i + 1])
+                var run = 0;
+                while (run < maxWords)
                 {
-                    looksValid = false;
-                    break;
-                }
-            }
+                    var offset = run * 4;
+                    uint word = 0;
+                    for (var i = 0; i < 4; i++)
+                        word |= (uint)(data[offset + i] ^ HeaderKeyByte(key, plus, offset + i)) << (8 * i);
 
-            if (looksValid)
-            {
-                headerSize -= 4; //the last 4 bytes we read were actually the start of the string literal data, so remove them from the header size
-                
-                var decryptedHeader = new byte[headerSize];
-                CyclicXorHeader(encryptedHeader[..headerSize], decryptedHeader, xorKey, isPlus);
-                stringLiteralsXorKey = encryptedWord[0];
-                var nextEncryptedWord = encryptedHeader[(headerSize + 4)..(headerSize + 8)];
-                stringLiteralsIsPlus = nextEncryptedWord[0] == encryptedWord[0] + 4;
-                return decryptedHeader;
+                    if (word >= fileSize)
+                        break;
+
+                    run++;
+                }
+
+                if (run > runWords)
+                {
+                    runWords = run;
+                    xorKey = (byte)key;
+                    isPlus = plus;
+                    waysToGetBestRun = 1;
+                }
+                else if (run == runWords)
+                    waysToGetBestRun++;
             }
         }
-        
-        throw new Exception("Failed to determine header size");
+
+        return runWords >= MinHeaderWords && waysToGetBestRun == 1;
     }
 
-    private List<List<ReconstructedSection>> FindPathsThroughMetadata(uint[] headerWords, int dataStart, int fileEnd, out SortedCollection<DeadEnd> bestDeadEnds, int maxResults = 10, int debugBestN = 10, int? expectedSectionCount = null, Dictionary<int, int>? alignBefore = null, int? originalHeaderSize = null)
+    //The first string literal record is {length, 0}, so bytes 1 through 7 of the section are zero in the clear and the raw bytes there are the key stream itself
+    private static bool LooksLikeStringLiteralsStart(ReadOnlySpan<byte> data, int pos)
     {
-        alignBefore ??= new();
-        var realOriginalHeaderSize = originalHeaderSize ?? dataStart;
-        var maxAlignPad = alignBefore.Values.DefaultIfEmpty(1).Max() - 1;
+        if (pos + 8 > data.Length)
+            return false;
 
-        var totalDeadEnds = 0;
-        var deadEndCounter = 0;
-        List<DeadEnd> deadEnds = new();
-        var localBestDeadEnds = bestDeadEnds = new();
-        
-        //Keep track of how many times each word appears so we can find a path using only the values which exist
-        var pool = new SortedCollection<uint>(headerWords);
-
-        List<List<ReconstructedSection>> results = new();
-
-        DepthFirstSearch(dataStart, pool, []);
-        
-        return results;
-
-        void TrackDeadEnd(int actualPos, List<ReconstructedSection> sections, string reason)
+        for (var i = 1; i < 7; i++)
         {
-            if(debugBestN <= 0)
-                return; //we're not tracking dead ends, so ignore this
-            
-            totalDeadEnds++;
-            deadEndCounter++;
-            var depth = sections.Count;
-            
-            if(localBestDeadEnds.Count > 0 && depth < localBestDeadEnds[0].depth)
-                return; //we've already got better dead ends, so ignore this one
-
-            var entry = new DeadEnd(depth, deadEndCounter, actualPos, reason, sections.ToList());
-            deadEnds.Add(entry);
-            
-            localBestDeadEnds.Add(entry);
-            if (localBestDeadEnds.Count > debugBestN)
-                localBestDeadEnds.RemoveAt(localBestDeadEnds.Count - 1);
+            if ((byte)(data[pos + i] + 1) != data[pos + i + 1])
+                return false;
         }
 
-        bool OffsetInRange(uint candidateOffset, int actualPos)
+        return true;
+    }
+
+    //The key run usually stops exactly where the string literals begin, but the first literal record can land under the file size by chance
+    private int FindHeaderEnd(ReadOnlySpan<byte> data, int runEnd)
+    {
+        var best = -1;
+        for (var pos = MinHeaderWords * 4; pos <= MaxHeaderSize; pos += 4)
         {
-            const int MinDelta = 0x10;
-            const int MaxDelta = 0x40;
-            
-            var delta = Math.Abs(actualPos - candidateOffset);
-            return delta is >= MinDelta and <= MaxDelta;
+            if (LooksLikeStringLiteralsStart(data, pos) && (best < 0 || Math.Abs(pos - runEnd) < Math.Abs(best - runEnd)))
+                best = pos;
         }
-        
+
+        if (best < 0)
+            throw new Exception("Failed to determine header size, couldn't find the start of the string literals");
+
+        if (best != runEnd)
+            Logger.VerboseNewline($"Header key run ends at {runEnd} but the string literals start at {best}, using the latter as the header size.");
+
+        return best;
+    }
+
+    private static Dictionary<int, long>? ExpectedLengthsFromTypeDefinitions(byte[] data, int start, int length, MetadataLayout layout)
+    {
+        if ((long)start + length > data.Length)
+            return null;
+
+        var recordSize = layout.RecordSizes[Section.TypeDefinitions];
+        Section[] sectionForCount = [Section.Methods, Section.Properties, Section.Fields, Section.Events, Section.NestedTypes, Section.VtableMethods, Section.Interfaces, Section.InterfaceOffsets];
+        Span<long> sums = stackalloc long[sectionForCount.Length];
+
+        for (var pos = start; pos + recordSize <= start + length; pos += recordSize)
+        {
+            var counts = data.AsSpan(pos + recordSize - 24, 16);
+            for (var i = 0; i < sums.Length; i++)
+                sums[i] += BinaryPrimitives.ReadUInt16LittleEndian(counts[(i * 2)..]);
+        }
+
+        var expected = new Dictionary<int, long>();
+        for (var i = 0; i < sums.Length; i++)
+            expected[layout.IndexOf(sectionForCount[i])] = sums[i] * layout.RecordSizes[sectionForCount[i]];
+
+        return expected;
+    }
+
+    private static Dictionary<int, long>? ExpectedLengthsFromImages(byte[] data, int start, int length, MetadataLayout layout)
+    {
+        if ((long)start + length > data.Length)
+            return null;
+
+        var recordSize = layout.RecordSizes[Section.Images];
+        var imageCount = length / recordSize;
+        long types = 0, exportedTypes = 0, customAttributes = 0;
+        for (var i = 0; i < imageCount; i++)
+        {
+            var image = data.AsSpan(start + i * recordSize, recordSize);
+            types += BinaryPrimitives.ReadUInt32LittleEndian(image[12..]);
+            exportedTypes += BinaryPrimitives.ReadUInt32LittleEndian(image[20..]);
+            customAttributes += BinaryPrimitives.ReadUInt32LittleEndian(image[36..]);
+        }
+
+        var expected = new Dictionary<int, long>
+        {
+            { layout.IndexOf(Section.TypeDefinitions), types * layout.RecordSizes[Section.TypeDefinitions] },
+            { layout.IndexOf(Section.Assemblies), (long)imageCount * layout.RecordSizes[Section.Assemblies] },
+            { layout.IndexOf(Section.ExportedTypeDefinitions), exportedTypes * layout.RecordSizes[Section.ExportedTypeDefinitions] },
+        };
+
+        if (layout.IndexOf(Section.AttributeDataRange) is var attributeDataRangeIndex && attributeDataRangeIndex >= 0)
+            expected[attributeDataRangeIndex] = (customAttributes + 1) * layout.RecordSizes[Section.AttributeDataRange]; //one extra range terminates the table
+
+        return expected;
+    }
+
+    //Custom attribute ranges are sorted by data offset, start at zero, and the final range points at the end of the attribute data (give or take the padding to four bytes)
+    private static bool AttributeDataRangesAgree(byte[] data, List<ReconstructedSection> sections, MetadataLayout layout)
+    {
+        var ranges = sections[layout.IndexOf(Section.AttributeDataRange)];
+        var attributeDataLength = sections[layout.IndexOf(Section.AttributeData)].Length;
+        if (ranges.Length < 8 || (long)ranges.ActualOffset + ranges.Length > data.Length)
+            return false;
+
+        long previous = 0;
+        for (var pos = ranges.ActualOffset; pos < ranges.ActualOffset + ranges.Length; pos += 8)
+        {
+            var startOffset = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(pos + 4));
+            if (startOffset < previous || (pos == ranges.ActualOffset && startOffset != 0))
+                return false;
+
+            previous = startOffset;
+        }
+
+        return previous <= attributeDataLength && attributeDataLength <= previous + 3;
+    }
+
+    //Unresolved virtual call parameter ranges tile the parameter type list exactly
+    private static bool VirtualCallRangesAgree(byte[] data, List<ReconstructedSection> sections, MetadataLayout layout)
+    {
+        var ranges = sections[layout.IndexOf(Section.UnresolvedVirtualCallParameterRanges)];
+        var typeCount = sections[layout.IndexOf(Section.UnresolvedVirtualCallParameterTypes)].Length / layout.RecordSizes[Section.UnresolvedVirtualCallParameterTypes];
+        if ((long)ranges.ActualOffset + ranges.Length > data.Length)
+            return false;
+
+        var next = 0;
+        for (var pos = ranges.ActualOffset; pos < ranges.ActualOffset + ranges.Length; pos += 8)
+        {
+            var start = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(pos));
+            var length = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(pos + 4));
+            if (start != next || length < 0)
+                return false;
+
+            next += length;
+        }
+
+        return next == typeCount;
+    }
+
+    private List<(int Start, int End)[]> FindSectionLayouts(byte[] data, uint[] headerWords, int dataStart, MetadataLayout layout)
+    {
+        var recordSizes = layout.Sections.Select(section => layout.RecordSizes.GetValueOrDefault(section)).ToArray();
+        var alignBefore = new Dictionary<int, int> { { layout.IndexOf(Section.FieldAndParameterDefaultValueData), 8 } };
+        var maxAlignPad = alignBefore.Values.Max() - 1;
+        var maxEnd = data.Length;
+
+        var typeDefinitionsIndex = layout.IndexOf(Section.TypeDefinitions);
+        var imagesIndex = layout.IndexOf(Section.Images);
+        var assembliesIndex = layout.IndexOf(Section.Assemblies);
+        var attributeDataRangeIndex = layout.IndexOf(Section.AttributeDataRange);
+        var virtualCallRangesIndex = layout.IndexOf(Section.UnresolvedVirtualCallParameterRanges);
+        var firstSectionAllowedEmpty = layout.IndexOf(Section.UnresolvedVirtualCallParameterTypes); //this cuts down on the number of invalid paths we get quite significantly
+
+        var pool = headerWords.ToArray();
+        Array.Sort(pool);
+        var used = new bool[pool.Length];
+        var sections = new List<ReconstructedSection>();
+        var typeDefinitionExpectations = new Dictionary<(int, int), Dictionary<int, long>?>();
+        var imageExpectations = new Dictionary<(int, int), Dictionary<int, long>?>();
+        var attributeRangeVerdicts = new Dictionary<(int, int), bool>();
+        var virtualCallRangeVerdicts = new Dictionary<(int, int), bool>();
+        var distinctLayouts = new HashSet<(int Start, int End)[]>(new SectionRangeComparer());
+        var results = new List<(int Start, int End)[]>();
+        var chainCount = 0;
+
+        DepthFirstSearch(dataStart, new Dictionary<int, long>());
+
+        Logger.VerboseNewline($"Walked {chainCount} chains through the header, giving {results.Count} distinct section layouts.");
+
+        //Decoy lengths are always (confirm?) a little larger than the real ones, so where layouts still disagree the shortest one is right
+        return [.. results.OrderBy(result => result[^1].End)];
+
+        int LastAtMost(long value)
+        {
+            int lo = 0, hi = pool.Length - 1, found = -1;
+            while (lo <= hi)
+            {
+                var mid = (lo + hi) >> 1;
+                if (pool[mid] <= value)
+                {
+                    found = mid;
+                    lo = mid + 1;
+                }
+                else
+                    hi = mid - 1;
+            }
+
+            return found;
+        }
+
+        int FirstAtLeast(long value)
+        {
+            int lo = 0, hi = pool.Length;
+            while (lo < hi)
+            {
+                var mid = (lo + hi) >> 1;
+                if (pool[mid] < value)
+                    lo = mid + 1;
+                else
+                    hi = mid;
+            }
+
+            return lo;
+        }
+
         //Alignment is according to the header before it was mangled, i.e. with original header size
         int ApplyAlignment(int actualPos, int sectionIndex)
         {
-            if(!alignBefore.TryGetValue(sectionIndex, out var align))
+            if (!alignBefore.TryGetValue(sectionIndex, out var align))
                 return actualPos;
 
-            var originalOffset = realOriginalHeaderSize + (actualPos - dataStart);
+            var originalOffset = layout.OriginalHeaderSize + (actualPos - dataStart);
             var remainder = originalOffset % align;
-            if (remainder == 0)
-                return actualPos;
-            
-            var padding = align - remainder;
-            return actualPos + padding;
+            return remainder == 0 ? actualPos : actualPos + align - remainder;
         }
 
-        void DepthFirstSearch(int actualPos, SortedCollection<uint> remainingPool, List<ReconstructedSection> sections)
+        bool PlacedSectionsMatch(Dictionary<int, long>? expected) => expected != null && expected.All(pair => sections[pair.Key].Length == pair.Value);
+
+        bool Cached(Dictionary<(int, int), bool> verdicts, int sectionIndex, Func<byte[], List<ReconstructedSection>, MetadataLayout, bool> check)
         {
-            if(results.Count >= maxResults)
+            var key = (sections[sectionIndex].ActualOffset, sections[sectionIndex].Length);
+            if (!verdicts.TryGetValue(key, out var verdict))
+                verdict = verdicts[key] = check(data, sections, layout);
+
+            return verdict;
+        }
+
+        void DepthFirstSearch(int actualPos, Dictionary<int, long> expectedLengths)
+        {
+            if (chainCount >= MaxLayoutSearchResults)
                 return;
-            
+
             var sectionIndex = sections.Count;
             actualPos = ApplyAlignment(actualPos, sectionIndex);
-            
-            var shortfall = fileEnd - actualPos;
-            if (shortfall <= 0)
+
+            if (sectionIndex == layout.SectionCount)
             {
-                if(expectedSectionCount == null || sections.Count == expectedSectionCount)
-                    results.Add([..sections]);
-                
-                return; //we've gone past the end of the file, so this is invalid
+                chainCount++;
+                var result = sections.Select(section => (section.ActualOffset, section.ActualOffset + section.Length)).ToArray();
+                if (distinctLayouts.Add(result))
+                    results.Add(result);
+
+                return;
             }
 
-            var candidateOffsets = new List<uint>();
-            foreach (var offset in remainingPool)
+            if (actualPos >= maxEnd)
+                return;
+
+            if (attributeDataRangeIndex >= 0 && sectionIndex == attributeDataRangeIndex + 1 && !Cached(attributeRangeVerdicts, attributeDataRangeIndex, AttributeDataRangesAgree))
+                return;
+
+            if (sectionIndex == virtualCallRangesIndex + 1 && !Cached(virtualCallRangeVerdicts, virtualCallRangesIndex, VirtualCallRangesAgree))
+                return;
+
+            if (sectionIndex == typeDefinitionsIndex + 1)
             {
-                if(OffsetInRange(offset, actualPos))
-                    candidateOffsets.Add(offset);
+                var typeDefinitions = sections[typeDefinitionsIndex];
+                var key = (typeDefinitions.ActualOffset, typeDefinitions.Length);
+                if (!typeDefinitionExpectations.TryGetValue(key, out var expected))
+                    expected = typeDefinitionExpectations[key] = ExpectedLengthsFromTypeDefinitions(data, typeDefinitions.ActualOffset, typeDefinitions.Length, layout);
+
+                if (!PlacedSectionsMatch(expected))
+                    return;
+            }
+            else if (sectionIndex == imagesIndex + 1)
+            {
+                var images = sections[imagesIndex];
+                var key = (images.ActualOffset, images.Length);
+                if (!imageExpectations.TryGetValue(key, out var expected))
+                    expected = imageExpectations[key] = ExpectedLengthsFromImages(data, images.ActualOffset, images.Length, layout);
+
+                if (expected == null || expected[typeDefinitionsIndex] != sections[typeDefinitionsIndex].Length)
+                    return;
+
+                expectedLengths = expected;
             }
 
-            if (candidateOffsets.Count == 0)
-            {
-                TrackDeadEnd(actualPos, sections, "No valid candidate offsets");
-                return; //no more valid offsets, so this is a dead end
-            }
+            var beforeFrom = FirstAtLeast((long)actualPos - MaxOffsetDelta);
+            var beforeTo = LastAtMost((long)actualPos - MinOffsetDelta);
+            var afterFrom = FirstAtLeast((long)actualPos + MinOffsetDelta);
+            var afterTo = LastAtMost((long)actualPos + MaxOffsetDelta);
 
-            var anyLengthFound = false;
-            candidateOffsets.Sort();
-            for (var i = 0; i < candidateOffsets.Count; i++)
-            {
-                var candidateOffset = candidateOffsets[i];
-                remainingPool.Remove(candidateOffset);
-                var delta = actualPos - candidateOffset;
+            var lengthLimit = LastAtMost((long)maxEnd + maxAlignPad - actualPos);
+            var hasExpectedLength = expectedLengths.TryGetValue(sectionIndex, out var expectedLength);
+            var recordSize = recordSizes[sectionIndex];
 
-                var foundLength = false;
-                for (var j = 0; j < remainingPool.Count; j++)
+            for (var window = 0; window < 2; window++)
+            {
+                var from = window == 0 ? beforeFrom : afterFrom;
+                var to = window == 0 ? beforeTo : afterTo;
+
+                for (var i = from; i <= to; i++)
                 {
-                    var length = remainingPool[j];
-                    var newPos = (int)(actualPos + length);
-                    if (newPos > fileEnd + maxAlignPad)
-                        break; //lengths are sorted ascending, so if this length is too long then the rest will be too
-
-                    //this cuts down on the number of invalid paths we get quite significantly
-                    if (sectionIndex < 26 && length == 0)
-                        //don't allow zero lengths for the first 26 sections
+                    //Equal words are interchangeable, so only the first free one of each run is worth trying
+                    if (used[i] || (i > from && pool[i] == pool[i - 1] && !used[i - 1]))
                         continue;
 
-                    remainingPool.Remove(length);
+                    var candidateOffset = pool[i];
+                    var delta = actualPos - candidateOffset;
+                    used[i] = true;
 
-                    foundLength = true;
-                    sections.Add(new ReconstructedSection((int)candidateOffset, (int)length, (int)delta));
+                    for (var j = lengthLimit; j >= 0; j--)
+                    {
+                        if (used[j] || (j < lengthLimit && pool[j] == pool[j + 1] && !used[j + 1]))
+                            continue;
 
-                    DepthFirstSearch(newPos, remainingPool, sections);
+                        var length = pool[j];
 
-                    sections.RemoveAt(sections.Count - 1);
-                    remainingPool.Add(length);
+                        if (hasExpectedLength)
+                        {
+                            if (length != expectedLength)
+                                continue;
+                        }
+                        else if (sectionIndex < firstSectionAllowedEmpty && length == 0 || recordSize != 0 && length % recordSize != 0)
+                            continue;
+
+                        used[j] = true;
+                        sections.Add(new ReconstructedSection((int)candidateOffset, (int)length, (int)delta));
+
+                        DepthFirstSearch((int)(actualPos + length), expectedLengths);
+
+                        sections.RemoveAt(sections.Count - 1);
+                        used[j] = false;
+                    }
+
+                    used[i] = false;
                 }
-
-                if (foundLength)
-                    anyLengthFound = true;
-
-                remainingPool.Add(candidateOffset);
-            }
-
-            if (!anyLengthFound)
-            {
-                TrackDeadEnd(actualPos, sections, "No valid length found for any candidate offset");
             }
         }
     }
-    
-    private Dictionary<int, byte[]> DecryptEncryptedSections(byte[] encryptedMetadata, List<(int Start, int End)> sections, byte stringLiteralsXorKey, bool stringLiteralsIsPlus, int assembliesSectionIndex)
+
+    private static bool LooksLikeStrings(ReadOnlySpan<byte> decrypted)
     {
-        var decryptedSectionBytes = new Dictionary<int, byte[]>();
-        
-        //Use the size of the section and the information we worked out earlier to derive the key shared between all sections
-        var stringLiteralsStart = sections[StringLiteralsSectionIndex].Start;
-        var stringLiteralsSize = sections[StringLiteralsSectionIndex].End - sections[StringLiteralsSectionIndex].Start;
-
-        foreach (var usingOffsetNotSize in stackalloc bool[] { true, false })
+        var sawTerminator = false;
+        foreach (var b in decrypted)
         {
-            try
+            if (b == 0)
+                sawTerminator = true;
+            else if (b < 0x20 || b == 0x7F)
+                return false;
+        }
+
+        return sawTerminator;
+    }
+
+    private Dictionary<int, byte[]> DecryptEncryptedSections(byte[] encryptedMetadata, (int Start, int End)[] sections, byte stringLiteralsXorKey, MetadataLayout layout)
+    {
+        var methodTokenOffset = layout.Version >= 31 ? 24 : 20; //returnParameterToken lands before the token in v31
+        (Section Section, int ProbeLength, SectionValidator IsValid)[] validators =
+        [
+            (Section.StringLiterals, 8, probe => probe[1..].IndexOfAnyExcept((byte)0) < 0),
+            (Section.StringLiteralData, 2, probe => probe[0] == 0 && probe[1] == 0),
+            (Section.Strings, 32, LooksLikeStrings),
+            (Section.Properties, 20, probe => BinaryPrimitives.ReadUInt32LittleEndian(probe[16..]) == 0x17000001),
+            (Section.Methods, methodTokenOffset + 4, probe => BinaryPrimitives.ReadUInt32LittleEndian(probe[methodTokenOffset..]) == 0x06000001),
+            (Section.Fields, 12, probe => BinaryPrimitives.ReadUInt32LittleEndian(probe[8..]) == 0x04000001),
+            (Section.Assemblies, 8, probe => BinaryPrimitives.ReadUInt32LittleEndian(probe) == 0 && BinaryPrimitives.ReadUInt32LittleEndian(probe[4..]) == 0x20000001),
+        ];
+
+        Span<byte> probe = stackalloc byte[validators.Max(validator => validator.ProbeLength)];
+        var literals = sections[layout.IndexOf(Section.StringLiterals)];
+
+        foreach (var usingOffsetNotSize in BothSigns)
+        {
+            foreach (var literalsIsPlus in BothSigns)
             {
-                byte sectionsXorKeyAddend = 0;
-                var stringLiteralsKeyComponent = usingOffsetNotSize ? stringLiteralsStart : stringLiteralsSize;
-                var testAddend = (byte)((stringLiteralsIsPlus ? (stringLiteralsXorKey - stringLiteralsKeyComponent) : (stringLiteralsXorKey + stringLiteralsKeyComponent)) & 0xFF);
+                var literalsComponent = usingOffsetNotSize ? literals.Start : literals.End - literals.Start;
+                var addend = (byte)((literalsIsPlus ? stringLiteralsXorKey : -stringLiteralsXorKey) - literalsComponent);
 
-                //Now decrypt the string literals section
-                var decryptedLiterals = new byte[stringLiteralsSize];
-                CyclicXor(
-                    encryptedMetadata.AsSpan(sections[StringLiteralsSectionIndex].Start, stringLiteralsSize),
-                    decryptedLiterals,
-                    testAddend,
-                    stringLiteralsIsPlus,
-                    stringLiteralsKeyComponent
-                );
-
-                if (decryptedLiterals[0] == 0 && decryptedLiterals[1] == 0)
+                var decryptedSectionBytes = new Dictionary<int, byte[]>();
+                var allValid = true;
+                foreach (var (section, probeLength, isValid) in validators)
                 {
-                    sectionsXorKeyAddend = testAddend;
-                    decryptedSectionBytes[StringLiteralsSectionIndex] = decryptedLiterals;
-                }
-                
-                if (!decryptedSectionBytes.ContainsKey(StringLiteralsSectionIndex))
-                    throw new Exception("Failed to determine whether section keys are based on offsets or sizes");
-                
-                Logger.VerboseNewlineIfDebug($"Section keys are based on {(usingOffsetNotSize ? "offsets" : "sizes")}, with addend 0x{sectionsXorKeyAddend:X2}");
-
-                //String literal data starts with 2 00 bytes, so we can get the direction from that
-                var stringLiteralDataStart = sections[StringLiteralsDataSectionIndex].Start;
-                var stringLiteralDataSize = sections[StringLiteralsDataSectionIndex].End - sections[StringLiteralsDataSectionIndex].Start;
-                var stringLiteralDataKeyComponent = usingOffsetNotSize ? stringLiteralDataStart : stringLiteralDataSize;
-
-                var firstByte = encryptedMetadata[stringLiteralDataStart];
-                var secondByte = encryptedMetadata[stringLiteralDataStart + 1];
-                var stringLiteralDataIsPlus = ((firstByte + 1) & 0xFF) == secondByte;
-                var stringLiteralDataIsMinus = ((firstByte - 1) & 0xFF) == secondByte;
-                if (!stringLiteralDataIsPlus && !stringLiteralDataIsMinus)
-                    throw new Exception("Failed to determine string literal data XOR direction");
-
-                if (stringLiteralDataIsPlus)
-                {
-                    //check for underflow resulting in wrong initial key
-                    var encryptedFirstWord = encryptedMetadata.AsSpan(stringLiteralDataStart, 4);
-                    var decryptedFirstWord = new byte[4];
-                    CyclicXor(
-                        encryptedFirstWord,
-                        decryptedFirstWord,
-                        sectionsXorKeyAddend,
-                        true,
-                        stringLiteralDataKeyComponent
-                    );
-                    if (decryptedFirstWord[0] != 0)
+                    var index = layout.IndexOf(section);
+                    var (start, end) = sections[index];
+                    var size = end - start;
+                    if (size < probeLength)
                     {
-                        stringLiteralDataIsPlus = false;
-                        sectionsXorKeyAddend = (byte)((0 - stringLiteralsXorKey - stringLiteralsKeyComponent) & 0xFF);
-                    }
-                }
-
-                //And decrypt it
-                var decryptedLiteralData = decryptedSectionBytes[StringLiteralsDataSectionIndex] = new byte[stringLiteralDataSize];
-                CyclicXor(
-                    encryptedMetadata.AsSpan(stringLiteralDataStart, stringLiteralDataSize),
-                    decryptedLiteralData,
-                    sectionsXorKeyAddend,
-                    stringLiteralDataIsPlus,
-                    stringLiteralDataKeyComponent
-                );
-
-                //Strings are a bit harder, we need to look for the null terminators in the first 32 bytes
-                var stringsSectionStart = sections[StringsSectionIndex].Start;
-                var stringsSectionSize = sections[StringsSectionIndex].End - sections[StringsSectionIndex].Start;
-                var stringsSectionKeyComponent = usingOffsetNotSize ? stringsSectionStart : stringsSectionSize;
-                var stringsFirstXorByteOffset = 0;
-                var stringsIsPlus = false;
-                var foundZeroBytes = 0;
-                foreach (var testIsPlus in new bool[] { true, false })
-                {
-                    foundZeroBytes = 0;
-                    stringsIsPlus = testIsPlus;
-                    for (var i = 0; i < 32; i++)
-                    {
-                        var assumedXorKey = (byte)((testIsPlus
-                            ? (i + stringsSectionKeyComponent + sectionsXorKeyAddend)
-                            : (i - stringsSectionKeyComponent - sectionsXorKeyAddend)) & 0xFF);
-                        var xorByte = (byte)(encryptedMetadata[stringsSectionStart + i] ^ assumedXorKey);
-                        if (xorByte == 0)
-                        {
-                            foundZeroBytes++;
-                            if (foundZeroBytes == 1)
-                                stringsFirstXorByteOffset = i;
-                            else if (foundZeroBytes == 2)
-                                break; //we've found the first two null terminators, which is enough to be confident we've got the right key direction
-                        }
-                    }
-
-                    if (foundZeroBytes == 2)
+                        allValid = false;
                         break;
-                }
+                    }
 
-                if (foundZeroBytes != 2)
-                    throw new Exception("Failed to determine strings section XOR direction");
-
-                //sanity check
-                var stringsXorByte = (byte)((stringsIsPlus
-                    ? (stringsFirstXorByteOffset + stringsSectionKeyComponent + sectionsXorKeyAddend)
-                    : (stringsFirstXorByteOffset - stringsSectionKeyComponent - sectionsXorKeyAddend)) & 0xFF);
-
-                if (encryptedMetadata[stringsSectionStart + stringsFirstXorByteOffset] != stringsXorByte)
-                    throw new Exception("Strings section XOR key doesn't seem to be correct");
-
-                //ok now decrypt strings
-                var decryptedStrings = decryptedSectionBytes[StringsSectionIndex] = new byte[stringsSectionSize];
-                CyclicXor(
-                    encryptedMetadata.AsSpan(stringsSectionStart, stringsSectionSize),
-                    decryptedStrings,
-                    sectionsXorKeyAddend,
-                    stringsIsPlus,
-                    stringsSectionKeyComponent
-                );
-
-                //for the rest of the sections we can just check the 3rd byte is 0 to determine the direction
-                var remainingEncryptedSections = new int[] { PropertiesSectionIndex, MethodsSectionIndex, FieldsSectionIndex, assembliesSectionIndex };
-                foreach (var sectionIndex in remainingEncryptedSections)
-                {
-                    var sectionStart = sections[sectionIndex].Start;
-                    var sectionSize = sections[sectionIndex].End - sections[sectionIndex].Start;
-                    var sectionKeyComponent = usingOffsetNotSize ? sectionStart : sectionSize;
-
-                    var decryptedSection = new byte[sectionSize];
-                    foreach (var testIsPlus in new bool[] { true, false })
+                    var component = usingOffsetNotSize ? start : size;
+                    byte? startKey = null;
+                    foreach (var isPlus in BothSigns)
                     {
-                        CyclicXor(
-                            encryptedMetadata.AsSpan(sectionStart, sectionSize),
-                            decryptedSection,
-                            sectionsXorKeyAddend,
-                            testIsPlus,
-                            sectionKeyComponent
-                        );
-                        if (decryptedSection[3] == 0)
+                        var candidate = (byte)(isPlus ? addend + component : -(addend + component));
+                        CyclicXor(encryptedMetadata.AsSpan(start, probeLength), probe, candidate);
+                        if (isValid(probe[..probeLength]))
                         {
-                            decryptedSectionBytes[sectionIndex] = decryptedSection;
+                            startKey = candidate;
                             break;
                         }
                     }
 
-                    if (!decryptedSectionBytes.ContainsKey(sectionIndex))
-                        throw new Exception($"Failed to determine XOR direction for section at index {sectionIndex}");
+                    if (startKey == null)
+                    {
+                        allValid = false;
+                        break;
+                    }
+
+                    var decryptedSection = new byte[size];
+                    CyclicXor(encryptedMetadata.AsSpan(start, size), decryptedSection, startKey.Value);
+                    decryptedSectionBytes[index] = decryptedSection;
                 }
 
-                return decryptedSectionBytes;
-            }
-            catch (Exception)
-            {
-                continue;
+                if (allValid)
+                {
+                    Logger.VerboseNewline($"Section keys are based on {(usingOffsetNotSize ? "offsets" : "sizes")}, with addend 0x{addend:X2}. String literals use {(literalsIsPlus ? "plus" : "minus")} sign.");
+                    return decryptedSectionBytes;
+                }
             }
         }
-        
+
         throw new Exception("Failed to decrypt sections with either offset-based or size-based keys");
     }
-    
-    private byte[] RebuildMetadata(byte[] encryptedMetadata, List<(int Start, int End)> sections, byte stringLiteralsXorKey, bool stringLiteralsIsPlus, int offsetDelta, byte metadataVersion, int assembliesSectionIndex)
-    {
-        var decryptedSections = DecryptEncryptedSections(encryptedMetadata, sections, stringLiteralsXorKey, stringLiteralsIsPlus, assembliesSectionIndex);
-        
-        var decryptedMetadata = new byte[encryptedMetadata.Length];
-        Span<byte> magicAndVersion = [0xAF, 0x1B, 0xB1, 0xFA, metadataVersion, 0x00, 0x00, 0x00];
-        magicAndVersion.CopyTo(decryptedMetadata);
-        
-        var headerSpan = decryptedMetadata.AsSpan(8, 256 - 8);
 
-        for (var i = 0; i < sections.Count; i++)
+    private byte[] RebuildMetadata(byte[] encryptedMetadata, (int Start, int End)[] sections, byte stringLiteralsXorKey, int offsetDelta, MetadataLayout layout)
+    {
+        var decryptedSections = DecryptEncryptedSections(encryptedMetadata, sections, stringLiteralsXorKey, layout);
+
+        var decryptedMetadata = new byte[encryptedMetadata.Length];
+        Span<byte> magicAndVersion = [0xAF, 0x1B, 0xB1, 0xFA, layout.Version, 0x00, 0x00, 0x00];
+        magicAndVersion.CopyTo(decryptedMetadata);
+
+        var headerSpan = decryptedMetadata.AsSpan(8);
+
+        for (var i = 0; i < sections.Length; i++)
         {
             var (start, end) = sections[i];
-            
-            //Write offset and length to header
-            var offsetBytes = BitConverter.GetBytes(start + offsetDelta).AsSpan();
-            var lengthBytes = BitConverter.GetBytes(end - start).AsSpan();
-            offsetBytes.CopyTo(headerSpan);
-            lengthBytes.CopyTo(headerSpan[4..]);
-            headerSpan = headerSpan[8..];
 
-            //And copy over data
-            var sectionSpan = decryptedMetadata.AsSpan(start + offsetDelta, end - start);
+            BinaryPrimitives.WriteInt32LittleEndian(headerSpan, start + offsetDelta);
+            BinaryPrimitives.WriteInt32LittleEndian(headerSpan[4..], end - start);
+            headerSpan = headerSpan[layout.BytesPerSectionHeaderField..];
+
             //Decrypted if it was encrypted, else copy straight from the original file
             var sectionData = decryptedSections.GetValueOrDefault(i) ?? encryptedMetadata.AsSpan(start, end - start).ToArray();
-            sectionData.CopyTo(sectionSpan);
+            sectionData.CopyTo(decryptedMetadata.AsSpan(start + offsetDelta, end - start));
         }
 
         return decryptedMetadata;
@@ -505,20 +677,18 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
 
     private byte[]? TryFixupMfuscatorMetadata(byte[] originalBytes, UnityVersion unityVersion)
     {
-        var decryptedHeader = DecryptHeader(originalBytes, out var stringLiteralsXorKey, out var stringLiteralsIsPlus);
-        
-        var headerLength = decryptedHeader.Length;
-         
-        var headerWords = MemoryMarshal.Cast<byte, uint>(decryptedHeader).ToArray();
-        
-        //There is some garbage data at the end of the file, which confuses the actual length of the metadata (which we use to find a chain through the real/fake values in the header to identify the real ones)
-        //So we unfortunately have to bruteforce it, reducing the length of the metadata by 4 bytes at a time until we get a path.
-        var metadataLength = originalBytes.Length;
-
-        var sectionAlignments = new Dictionary<int, int>
+        if (!TryDeriveHeaderKey(originalBytes, out var headerXorKey, out var headerIsPlus, out var headerRunWords))
         {
-            { 8, 8 }, //fieldAndParameterDefaultValueData
-        };
+            Logger.WarnNewline("Couldn't derive a header XOR key, this metadata doesn't look like mfuscator's handiwork.");
+            return null;
+        }
+
+        var headerLength = FindHeaderEnd(originalBytes, headerRunWords * 4);
+        var decryptedHeader = new byte[headerLength];
+        CyclicXorHeader(originalBytes.AsSpan(0, headerLength), decryptedHeader, headerXorKey, headerIsPlus);
+        var headerWords = MemoryMarshal.Cast<byte, uint>(decryptedHeader).ToArray();
+
+        var stringLiteralsXorKey = (byte)(originalBytes[headerLength + 1] - 1); //byte 1 of the first literal record is zero in the clear, so the raw byte is key + 1
 
         byte MetadataVersion;
         if (unityVersion.LessThan(2017))
@@ -544,96 +714,34 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
         else
             MetadataVersion = 106;
 
-        var assembliesSectionIndex = 21;
-        if (MetadataVersion > 103)
-            assembliesSectionIndex = 22; //typeInlineArrays added before it
-        else if (MetadataVersion == 24 && unityVersion.LessThan(2019))
-            assembliesSectionIndex = 22; //pre-24.2 we have rgctxEntries before assemblies
-        
-        var expectedSectionCount = MetadataVersion switch
-        {
-            >= 104 => 32,
-            >= 27 => 31,
-            _ => throw new NotImplementedException("Metadata versions below 27 aren't currently supported (largely because mfuscator itself doesn't support these versions)")
-        };
-        var bytesPerSectionHeaderField = MetadataVersion switch
-        {
-            >= 38 => 12,
-            _ => 8
-        };
-        
-        if(bytesPerSectionHeaderField == 12)
+        if (MetadataVersion < 27)
+            throw new NotImplementedException("Metadata versions below 27 aren't currently supported (largely because mfuscator itself doesn't support these versions)");
+
+        var layout = new MetadataLayout(MetadataVersion, unityVersion);
+
+        if (layout.BytesPerSectionHeaderField == 12)
             throw new NotImplementedException("Metadata versions with 12 bytes per section header field aren't currently supported");
-        
-        var originalHeaderSize = 8 + expectedSectionCount * bytesPerSectionHeaderField; //magic + version + 8 bytes per section header field
-        
-        Logger.InfoNewline($"Mfuscator header decrypted successfully. Header length: {headerLength} bytes. String literals XOR key: 0x{stringLiteralsXorKey:X2}. String literals use {(stringLiteralsIsPlus ? "plus" : "minus")} rotation. Will rebuild as version {MetadataVersion} metadata with assemblies section at index {assembliesSectionIndex}.");
-        
+
+        Logger.InfoNewline($"Mfuscator header decrypted successfully. Header XOR key: 0x{headerXorKey:X2} ({(headerIsPlus ? "plus" : "minus")} rotation). Header length: {headerLength} bytes. String literals XOR key: 0x{stringLiteralsXorKey:X2}. Will rebuild as version {MetadataVersion} metadata with {layout.SectionCount} sections and assemblies section at index {layout.IndexOf(Section.Assemblies)}.");
         Logger.VerboseNewline("Decrypted header: " + string.Join("", decryptedHeader.Select(b => b.ToString("X2"))));
-        
-        var lengthsToTry = Enumerable.Sequence(metadataLength, headerLength, -4).ToArray();
-        byte[]? rebuiltMetadata = null;
-        var winningIndex = long.MaxValue;
-        var rebuiltMetadataLock = new object();
 
-        // Preserve the original highest-length-first behavior while still stopping lower-priority work once a candidate is found.
-        Parallel.ForEach(Partitioner.Create(lengthsToTry, loadBalance: true), (length, loopState, index) =>
+        foreach (var sectionLayout in FindSectionLayouts(originalBytes, headerWords, headerLength, layout))
         {
-            if (index > loopState.LowestBreakIteration || index > Interlocked.Read(ref winningIndex))
-                return;
+            Logger.VerboseNewline("Trying section layout: " + string.Join(", ", sectionLayout.Select(range => $"({range.Start:X4}-{range.End:X4})")));
 
-            Logger.VerboseNewlineIfDebug($"Trying metadata length 0x{length:X4}");
-            
-            var paths = FindPathsThroughMetadata(headerWords, headerLength, length, out var bestDeadEnds, maxResults: 65536, debugBestN: 0, expectedSectionCount: expectedSectionCount, alignBefore: sectionAlignments, originalHeaderSize: originalHeaderSize);
-
-            if (paths.Count > 0)
+            try
             {
-                //We'll likely get a couple dozen paths due to the fake offsets, which vary in supposed position and delta, but they should all agree on *actual* position in file.
-                //We check that that's the case, and take those actual positions as gospel.
-                //NB actually we don't check if that's the case because they sometimes differ in unimportant sections, too bad!
-                Logger.VerboseNewlineIfDebug($"Found {paths.Count} possible section layouts with metadata length 0x{length:X4} bytes.");
-                
-                var actualRanges = paths.Select(path => path.Select(section => (section.ActualOffset, section.ActualOffset + section.Length)).ToArray()).ToArray();
+                var rebuiltMetadata = RebuildMetadata(originalBytes, sectionLayout, stringLiteralsXorKey, offsetDelta: layout.OriginalHeaderSize - headerLength, layout);
 
-                var distinct = actualRanges.Distinct(new SectionRangeComparer()).ToArray();
-                
-                Logger.VerboseNewlineIfDebug($"These collapse to {distinct.Length} distinct actual section layouts.");
-
-                foreach (var acceptedLayout in distinct)
-                {
-
-                    Logger.VerboseNewlineIfDebug($"Trying section layout: " + string.Join(", ", acceptedLayout.Select(range => $"({range.Item1:X4}-{range.Item2:X4})")));
-
-                    try
-                    {
-                        var ret = RebuildMetadata(originalBytes, acceptedLayout.ToList(), stringLiteralsXorKey, stringLiteralsIsPlus, offsetDelta: originalHeaderSize - headerLength, MetadataVersion, assembliesSectionIndex);
-                        var installedWinningResult = false;
-                        lock (rebuiltMetadataLock)
-                        {
-                            if (index < winningIndex)
-                            {
-                                winningIndex = index;
-                                rebuiltMetadata = ret;
-                                installedWinningResult = true;
-                            }
-                        }
-
-                        if (!installedWinningResult)
-                            return;
-
-                        Logger.InfoNewline("Returning decrypted metadata now...");
-                        loopState.Break();
-                        return;
-                    }
-                    catch (Exception)
-                    {
-                        continue;
-                    }
-                }
+                Logger.InfoNewline("Returning decrypted metadata now...");
+                return rebuiltMetadata;
             }
+            catch (Exception e)
+            {
+                Logger.VerboseNewline($"Section layout rejected: {e.Message}");
+            }
+        }
 
-        });
-        
-        return rebuiltMetadata;
+        return null;
     }
 }
