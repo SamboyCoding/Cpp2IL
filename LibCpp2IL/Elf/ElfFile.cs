@@ -526,6 +526,19 @@ public sealed class ElfFile : ElfStyleRelocationsBinary
 
     public override long RawLength => _raw.Length;
 
+    public override bool IsVirtualAddressReadOnly(ulong addr)
+    {
+        var segment = _elfProgramHeaderEntries.FirstOrDefault(x => x.Type == ElfProgramEntryType.PT_LOAD
+            && addr >= x.VirtualAddress
+            && addr < x.VirtualAddress + x.VirtualSize);
+
+        //Bytes past RawSize are zero-filled at load time (.bss) rather than read from the file, so only
+        //the file-backed part of a non-writable segment holds a constant.
+        return segment != null
+            && (segment.Flags & ElfProgramHeaderFlags.PF_W) == 0
+            && addr < segment.VirtualAddress + segment.RawSize;
+    }
+
     public override long MapVirtualAddressToRaw(ulong addr, bool throwOnError = true)
     {
         var section = _elfProgramHeaderEntries.FirstOrDefault(x => addr >= x.VirtualAddress && addr < x.VirtualAddress + x.VirtualSize);

@@ -518,6 +518,13 @@ public abstract class Il2CppBinary(Stream input) : ClassReadingBinaryReader(inpu
     public abstract ulong GetVirtualAddressOfExportedFunctionByName(string toFind);
     public virtual bool IsExportedFunction(ulong addr) => false;
 
+    /// <summary>
+    /// Whether the bytes at the given virtual address cannot change once the binary is loaded, which
+    /// makes them a compile-time constant. Defaults to false, so a caller only gets a true answer from
+    /// a binary format that actually reports segment permissions.
+    /// </summary>
+    public virtual bool IsVirtualAddressReadOnly(ulong addr) => false;
+
     public virtual bool TryGetExportedFunctionName(ulong addr, [NotNullWhen(true)] out string? name)
     {
         name = null;

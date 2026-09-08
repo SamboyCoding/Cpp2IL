@@ -1,5 +1,7 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Disarm;
 using Cpp2IL.Core.Api;
@@ -187,6 +189,34 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
         adrpOffsets.Clear();
         return instructions;
+    }
+
+    /// <summary>
+    /// Reads the single-precision value held at a constant address, when that address is in a segment
+    /// the runtime cannot write. A writable segment only holds its final value once the runtime has
+    /// initialised it, so the bytes there are not a constant.
+    /// </summary>
+    private static bool TryReadSingleLiteral(MethodAnalysisContext context, long address,
+        [NotNullWhen(true)] out FloatLiteral? literal)
+    {
+        literal = null;
+
+        if (address <= 0)
+            return false;
+
+        var binary = context.AppContext.Binary;
+
+        if (!binary.IsVirtualAddressReadOnly((ulong)address)
+            || !binary.TryMapVirtualAddressToRaw((ulong)address, out var raw) || raw < 0)
+            return false;
+
+        var content = binary.GetRawBinaryContent();
+
+        if (raw + sizeof(float) > content.Length)
+            return false;
+
+        literal = new FloatLiteral(BinaryPrimitives.ReadSingleLittleEndian(content.Slice((int)raw, sizeof(float))));
+        return true;
     }
 
     private void ConvertInstructionStatement(Arm64Instruction instruction, List<Instruction> instructions, List<ulong> addresses, MethodAnalysisContext context)
@@ -471,6 +501,15 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     var source = instruction.Op1Kind == Arm64OperandKind.ImmediatePcRelative
                         ? new MemoryOperand(addend: (long)address + instruction.Op1Imm)
                         : MemOperand();
+
+                    // A single-precision load from a constant address in a segment the runtime cannot
+                    // write is a literal pool entry, so its value is known right here. Restricted to Sn
+                    // because the width is then unambiguous - an LDR Dn may hold two .2S lanes rather
+                    // than one double, and reading it as a double would invent a value.
+                    if (instruction.Op0Reg is >= Arm64Register.S0 and <= Arm64Register.S31
+                        && source is MemoryOperand { IsConstant: true } poolEntry
+                        && TryReadSingleLiteral(context, poolEntry.Addend, out var poolValue))
+                        source = poolValue;
 
                     if (instruction.Op0Kind == Arm64OperandKind.Register && IsReg31(instruction.Op0Reg))
                         Add(address, OpCode.Nop); // load to xzr = prefetch, discard
