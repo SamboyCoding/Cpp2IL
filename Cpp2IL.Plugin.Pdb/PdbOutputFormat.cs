@@ -1,5 +1,6 @@
 using System.Reflection.PortableExecutable;
 using AssetRipper.Bindings.MsPdbCore;
+using AssetRipper.Bindings.MsPdbCore.CodeView;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL.PE;
@@ -32,7 +33,7 @@ internal unsafe class PdbOutputFormat : Cpp2IlOutputFormat
         {
             if (sectionHeader.Name == "il2cpp")
                 i2cs = secNum;
-            MsPdbCore.DBIAddSec(dbi, secNum++, 0 /* TODO? */, sectionHeader.VirtualAddress, sectionHeader.VirtualSize);
+            mod->AddSecContrib(secNum++, sectionHeader.VirtualAddress, sectionHeader.VirtualSize, (uint)sectionHeader.SectionCharacteristics);
         }
 
         Dictionary<string, ulong> keyFunctions = [];
@@ -53,7 +54,7 @@ internal unsafe class PdbOutputFormat : Cpp2IlOutputFormat
                 continue;
 
             GetSectionInformation(peReader, (long)context.Binary.GetRva(address), out var targetSection, out var offset);
-            MsPdbCore.ModAddPublic2(mod, name, targetSection, offset, CV_PUBSYMFLAGS_e.Function);
+            MsPdbCore.ModAddPublic2(mod, name, targetSection, offset, CV_PUBSYMFLAGS_e.cvpsfFunction);
         }
 
         foreach ((var virtualAddress, var list) in context.MethodsByAddress)
@@ -69,8 +70,16 @@ internal unsafe class PdbOutputFormat : Cpp2IlOutputFormat
                 {
                     continue; // Skip native methods
                 }
-                MsPdbCore.ModAddPublic2(mod, method.FullName, targetSection, offset, CV_PUBSYMFLAGS_e.Function);
+                MsPdbCore.ModAddPublic2(mod, method.FullName, targetSection, offset, CV_PUBSYMFLAGS_e.cvpsfFunction);
             }
+        }
+
+        foreach (var stringLiteral in context.Metadata.stringLiterals)
+        {
+            var rawAddress = context.Metadata.metadataHeader.stringLiteralData.Offset + stringLiteral.dataIndex;
+            var virtualAddress = context.Binary.MapRawAddressToVirtual((uint)rawAddress);
+            GetSectionInformation(peReader, (long)context.Binary.GetRva(virtualAddress), out var targetSection, out var offset);
+            MsPdbCore.ModAddPublic2(mod, $"StringLiteral_{virtualAddress:X}", targetSection, offset, CV_PUBSYMFLAGS_e.cvpsfNone);
         }
 
         MsPdbCore.ModClose(mod);
@@ -95,7 +104,7 @@ internal unsafe class PdbOutputFormat : Cpp2IlOutputFormat
         Console.WriteLine(targetDebugInfo.Guid);
         Console.WriteLine(targetDebugInfo.Age);
 
-        BitConverter.TryWriteBytes(allPdbBytes.AsSpan(patchTarget - 4), targetDebugInfo.Age);
+        BitConverter.TryWriteBytes(allPdbBytes.AsSpan(patchTarget - sizeof(int)), targetDebugInfo.Age);
         File.WriteAllBytes(pdbFilePath, allPdbBytes);
     }
 
@@ -125,14 +134,20 @@ internal unsafe class PdbOutputFormat : Cpp2IlOutputFormat
 
     private static int IndexOfBytes(ReadOnlySpan<byte> haystack, ReadOnlySpan<byte> needle)
     {
+        var result = -1;
         for (var i = 0; i <= haystack.Length - needle.Length; i++)
         {
             if (haystack.Slice(i, needle.Length).SequenceEqual(needle))
             {
-                return i;
+                if (result != -1)
+                    throw new ApplicationException("Found multiple matches for guid in pdb file, this is unexpected");
+                result = i;
             }
         }
 
-        return -1;
+        if (result == -1)
+            throw new ApplicationException("Failed to find guid in pdb file, this is unexpected");
+
+        return result;
     }
 }
