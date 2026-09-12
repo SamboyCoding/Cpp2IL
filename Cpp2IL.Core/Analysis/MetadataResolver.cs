@@ -150,9 +150,15 @@ public static class MetadataResolver
                 if (memory.Base is not LocalVariable local || local?.Type == null)
                     continue;
 
+                // A byref-typed base (a managed pointer to a value type) has no fields of its
+                // own - IlGenerator's Ldfld emission accepts a managed pointer operand directly
+                // (same as it does for the addend==0 dereference case), so field resolution walks
+                // the referent's layout instead of the byref wrapper's, which is always empty.
+                var baseType = local.Type is ByRefTypeAnalysisContext { ElementType: { } referent } ? referent : local.Type;
+
                 // check if static field access
-                var staticOwner = (local.Type as StaticFieldStorageTypeAnalysisContext)?.OwnerType;
-                var owner = staticOwner ?? local.Type;
+                var staticOwner = (baseType as StaticFieldStorageTypeAnalysisContext)?.OwnerType;
+                var owner = staticOwner ?? baseType;
                 var genericOwner = owner as GenericInstanceTypeAnalysisContext;
 
                 FieldAnalysisContext? field;
