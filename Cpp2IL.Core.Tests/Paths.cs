@@ -32,4 +32,10 @@ public static class Paths
         public const string GameAssembly = RootDirectory + "GameAssembly.dll";
         public const string Metadata = DataDirectory + "il2cpp_data/Metadata/global-metadata.dat";
     }
+
+    public static class MachO
+    {
+        public const string RootDirectory = TestFilesDirectory + "MachO/";
+        public const string ChainedFixupsUniversal = RootDirectory + "ChainedFixupsUniversal.dylib";
+    }
 }
