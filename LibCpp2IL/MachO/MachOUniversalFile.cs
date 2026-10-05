@@ -61,7 +61,8 @@ public class MachOUniversalFile : ClassReadingBinaryReader
         var numberBytesRead = input.Read(machOFileBuffer, 0, (int)selectedEntry.FileSize);
         if (numberBytesRead != (int)selectedEntry.FileSize)
             LibLogger.WarnNewline($"Read {numberBytesRead} bytes, but expected to read {selectedEntry.FileSize} bytes");
-        var memoryStream = new MemoryStream(machOFileBuffer, 0, (int)selectedEntry.FileSize, false, true);
+        // Writable: MachOFile applies chained fixups in place
+        var memoryStream = new MemoryStream(machOFileBuffer, 0, (int)selectedEntry.FileSize, true, true);
         BestMachOFile = new MachOFile(memoryStream);
     }
 }
