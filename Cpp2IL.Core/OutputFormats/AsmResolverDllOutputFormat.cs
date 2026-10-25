@@ -5,7 +5,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using AsmResolver;
 using AsmResolver.DotNet;
 using AsmResolver.DotNet.Builder;
 using AsmResolver.PE.Builder;
@@ -51,23 +53,29 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         if (!Directory.Exists(outputRoot))
             Directory.CreateDirectory(outputRoot);
 
-        //Convert assembly definitions to PE files
-        var peImagesToWrite = ret
-            .AsParallel()
-            .Select(a => (image: a.ManifestModule!.ToPEImage(new ManagedPEImageBuilder()), name: a.ManifestModule.Name!))
-            .ToList();
-
-        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
-
-        start = DateTime.Now;
-        Logger.Verbose("Building and writing managed PE files to disk...", "DllOutput");
-
-        //Save them
+        //Convert assembly definitions to PE files and write them to disk
         var fileBuilder = new ManagedPEFileBuilder();
-        foreach (var (image, name) in peImagesToWrite)
+        var imageBuilder = new ManagedPEImageBuilder(EmptyErrorListener.Instance);
+
+        foreach (var assembly in ret)
         {
-            var dllPath = Path.Combine(outputRoot, name);
-            fileBuilder.CreateFile(image).Write(dllPath);
+            if (assembly.ManifestModule is not { } module)
+                continue;
+
+            var name = module.Name;
+            if (string.IsNullOrEmpty(name))
+                continue;
+
+            try
+            {
+                var image = module.ToPEImage(imageBuilder);
+                var dllPath = Path.Combine(outputRoot, name);
+                fileBuilder.CreateFile(image).Write(dllPath);
+            }
+            catch (Exception ex)
+            {
+                Logger.WarnNewline($"Failed to write PE image for {name}: {ex.Message}", "DllOutput");
+            }
         }
 
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");

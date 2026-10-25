@@ -58,6 +58,9 @@ public static class ThrowHelperRecovery
         if (address == wanted)
             return true;
 
+        if (appContext.ExceptionRaisersByAddress.TryGetValue(address, out var cached))
+            return cached;
+
         if (depth >= MaxRaiserDepth || !visited.Add(address))
             return false;
 

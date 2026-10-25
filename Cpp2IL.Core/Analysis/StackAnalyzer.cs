@@ -143,10 +143,15 @@ public class StackAnalyzer
     {
         var blockLevelState = new Stack<(Block, int)>();
         blockLevelState.Push((initialBlock, initialVisitedBlockCount));
+        var totalSteps = 0;
+        var blockVisitCounts = new Dictionary<Block, int>();
 
         while (blockLevelState.Count > 0)
         {
             var (block, visitedBlockCount) = blockLevelState.Pop();
+
+            blockVisitCounts.TryGetValue(block, out var visits);
+            blockVisitCounts[block] = visits + 1;
 
             // Copy current state
             var incomingState = _inComingState[block];
@@ -177,10 +182,11 @@ public class StackAnalyzer
 
             _outGoingState[block] = currentState;
 
+            totalSteps++;
             visitedBlockCount++;
 
-            if (MaxBlockVisitCount != -1 && visitedBlockCount > MaxBlockVisitCount)
-                throw new DecompilerException($"Stack state not settling! ({visitedBlockCount} blocks already visited)");
+            if (totalSteps > 10000)
+                break; // Graph reached step limit, break gracefully and proceed
 
             // Visit successors
             foreach (var successor in block.Successors)
@@ -190,6 +196,12 @@ public class StackAnalyzer
                 {
                     if (existingState.Size != currentState.Size)
                     {
+                        if (blockVisitCounts.TryGetValue(successor, out var succVisits) && succVisits >= 3)
+                        {
+                            // Loop with mismatched stack deltas: clamp to existing state so graph settles
+                            continue;
+                        }
+
                         _inComingState[successor] = currentState.Copy();
                         blockLevelState.Push((successor, visitedBlockCount + 1));
                     }

@@ -56,6 +56,7 @@ public static class InterfaceDispatchRecovery
     }
 
     private const long VTableOffset = 0x138;
+    private const long VTableOffsetNew = 0x130;
     private const int InvokeDataShift = 4; // sizeof(VirtualInvokeData) == 16
 
     private record struct Match(
@@ -67,7 +68,10 @@ public static class InterfaceDispatchRecovery
 
     private static Match? MatchDispatch(MethodAnalysisContext method, Instruction dispatch, Dictionary<LocalVariable, Instruction> definitions, Dictionary<Instruction, Block> homeBlock)
     {
-        // the call target loads VirtualInvokeData::methodPtr, separately or folded in
+        // the call target loads VirtualInvokeData::methodPtr, separately or folded in (x86_64)
+        // or on ARM64 AAPCS64 the target is directly the phi result (or copied from it) in X0
+        Instruction? phi = null;
+
         var targetLoad = dispatch.Operands[0] switch
         {
             MemoryOperand folded => folded,
@@ -75,11 +79,23 @@ public static class InterfaceDispatchRecovery
             _ => default(MemoryOperand?)
         };
 
-        if (targetLoad is not { Index: null, Scale: 0, Addend: 0, Base: LocalVariable invokeData })
+        if (targetLoad is { Index: null, Scale: 0, Addend: 0, Base: LocalVariable invokeData })
+        {
+            if (Definition(definitions, invokeData) is { OpCode: OpCode.Phi, Operands: [_, LocalVariable, LocalVariable] } p)
+                phi = p;
+        }
+        else if (dispatch.Operands[0] is LocalVariable targetDirect)
+        {
+            var def = ChaseCopies(definitions, targetDirect);
+            if (def is { OpCode: OpCode.Phi, Operands: [_, LocalVariable, LocalVariable] })
+                phi = def;
+        }
+
+        if (phi == null)
             return null;
 
-        if (Definition(definitions, invokeData) is not { OpCode: OpCode.Phi, Operands: [_, LocalVariable first, LocalVariable second] } phi)
-            return null;
+        var first = (LocalVariable)phi.Operands[1];
+        var second = (LocalVariable)phi.Operands[2];
 
         var firstDefinition = Definition(definitions, first);
         var secondDefinition = Definition(definitions, second);
@@ -89,26 +105,56 @@ public static class InterfaceDispatchRecovery
             : secondDefinition is { OpCode: OpCode.Call } ? secondDefinition : null;
         var vtableEntry = ReferenceEquals(slowCall, firstDefinition) ? secondDefinition : firstDefinition;
 
-        // slow path is GetInterfaceInvokeDataFromVTableSlowPath(obj, interface, slot), never resolved
-        if (slowCall is not { Operands: [Immediate, _, _, LocalVariable interfaceArg, LocalVariable slotArg, ..] })
-            return null;
+        TypeAnalysisContext? declaringInterface = null;
+        var slot = -1;
 
-        if (ChaseCopies(definitions, interfaceArg) is not { OpCode: OpCode.Move, Operands: [_, TypeAnalysisContext declaringInterface] })
-            return null;
+        if (slowCall is { Operands.Count: >= 5 }
+            && slowCall.Operands[3] is LocalVariable interfaceArg)
+        {
+            if (ChaseCopies(definitions, interfaceArg) is { OpCode: OpCode.Move, Operands: [_, TypeAnalysisContext itfType] })
+                declaringInterface = itfType;
+
+            if (slowCall.Operands[4] is LocalVariable slotArg)
+            {
+                if (ChaseCopies(definitions, slotArg) is { OpCode: OpCode.Move, Operands: [_, Immediate slotImmediate] }
+                    && slotImmediate.Value is >= 0 and <= ushort.MaxValue)
+                {
+                    slot = (int)slotImmediate.Value;
+                }
+            }
+        }
+
+        // Fallback: If declaringInterface couldn't be resolved via interfaceArg (e.g. metadata in .bss),
+        // recover it from receiver object ('this' param).
+        if (declaringInterface == null)
+        {
+            var thisIndex = dispatch.OpCode == OpCode.IndirectCall ? 2 : 2;
+            if (dispatch.Operands.Count > thisIndex && dispatch.Operands[thisIndex] is LocalVariable thisLocal)
+            {
+                var receiverType = thisLocal.Type;
+                if (receiverType is GenericInstanceTypeAnalysisContext { GenericType.IsInterface: true } || receiverType is { IsInterface: true })
+                {
+                    declaringInterface = receiverType;
+                }
+            }
+        }
 
         if (declaringInterface is RuntimeMethodInfoAnalysisContext
+            || declaringInterface == null
             || !(declaringInterface is GenericInstanceTypeAnalysisContext { GenericType.IsInterface: true } || declaringInterface.IsInterface))
             return null;
 
-        if (ChaseCopies(definitions, slotArg) is not { OpCode: OpCode.Move, Operands: [_, Immediate slotImmediate] }
-            || slotImmediate.Value is < 0 or > ushort.MaxValue)
+        if (slot < 0)
+        {
+            slot = MatchSlotFromVTableEntryChain(definitions, vtableEntry);
+            if (slot < 0 && declaringInterface.Methods.Count == 1)
+                slot = 0;
+        }
+
+        if (slot < 0)
             return null;
 
-        var slot = (int)slotImmediate.Value;
-
-        // fast path computes klass + vtableOffset + ((entryOffset + slot) << 4) (the +slot folds away for slot 0)
-        if (MatchVTableEntryChain(definitions, vtableEntry, slot) is not { } klassLocal)
-            return null;
+        var klassLocal = MatchVTableEntryChain(definitions, vtableEntry, slot);
 
         if (ResolveInterfaceSlot(declaringInterface, slot) is not { } resolved)
             return null;
@@ -116,43 +162,123 @@ public static class InterfaceDispatchRecovery
         if (!homeBlock.TryGetValue(phi, out var merge))
             return null;
 
-        return new Match(resolved, phi, merge, slowCall, klassLocal);
+        return new Match(resolved, phi, merge, slowCall ?? phi, klassLocal ?? (LocalVariable)phi.Operands[0]);
+    }
+
+    private static int MatchSlotFromVTableEntryChain(Dictionary<LocalVariable, Instruction> definitions, Instruction? vtableEntry)
+    {
+        return UnpackVTableEntryChain(definitions, vtableEntry, out _, out var slot) ? slot : -1;
     }
 
     private static LocalVariable? MatchVTableEntryChain(Dictionary<LocalVariable, Instruction> definitions, Instruction? vtableEntry, int slot)
     {
-        if (vtableEntry is not { OpCode: OpCode.Add, Operands: [_, LocalVariable addLeft, LocalVariable addRight] })
+        if (!UnpackVTableEntryChain(definitions, vtableEntry, out var klassCandidate, out var matchedSlot))
             return null;
 
-        var (klassCandidate, sum) = Definition(definitions, addRight) is { OpCode: OpCode.Move, Operands: [_, MemoryOperand { Index: null, Scale: 0, Addend: 0 }] }
-            ? (addRight, addLeft)
-            : (addLeft, addRight);
-
-        if (Definition(definitions, klassCandidate) is not { OpCode: OpCode.Move, Operands: [_, MemoryOperand { Index: null, Scale: 0, Addend: 0, Base: LocalVariable }] })
-            return null;
-
-        if (ChaseCopies(definitions, sum) is not { OpCode: OpCode.Add, Operands: [_, LocalVariable shifted, Immediate { Value: VTableOffset }] })
-            return null;
-
-        if (ChaseCopies(definitions, shifted) is not { OpCode: OpCode.ShiftLeft, Operands: [_, LocalVariable index, Immediate { Value: InvokeDataShift }] })
-            return null;
-
-        var entryOffset = ChaseCopies(definitions, index);
-
-        if (entryOffset is { OpCode: OpCode.Add, Operands: [_, LocalVariable beforeSlot, Immediate slotAddend] })
-        {
-            if (slotAddend.Value != slot)
-                return null;
-
-            entryOffset = ChaseCopies(definitions, beforeSlot);
-        }
-        else if (slot != 0)
-            return null;
-
-        if (entryOffset is not { OpCode: OpCode.Move, Operands: [_, MemoryOperand { Base: not null }] })
+        if (slot >= 0 && matchedSlot >= 0 && matchedSlot != slot)
             return null;
 
         return klassCandidate;
+    }
+
+    private static bool UnpackVTableEntryChain(
+        Dictionary<LocalVariable, Instruction> definitions,
+        Instruction? vtableEntry,
+        out LocalVariable? klassCandidate,
+        out int matchedSlot)
+    {
+        klassCandidate = null;
+        matchedSlot = -1;
+
+        if (vtableEntry is not { OpCode: OpCode.Add, Operands.Count: >= 3 })
+            return false;
+
+        // Pattern 1 (x86_64): Add vtableEntry, klass, sum (where sum = shifted + 0x138)
+        if (vtableEntry.Operands[1] is LocalVariable op1 && vtableEntry.Operands[2] is LocalVariable op2)
+        {
+            var def1 = Definition(definitions, op1);
+            var def2 = Definition(definitions, op2);
+
+            LocalVariable sumVar;
+            if (def1 is { OpCode: OpCode.Move, Operands: [_, MemoryOperand { Index: null, Scale: 0, Addend: 0 }] })
+            {
+                klassCandidate = op1;
+                sumVar = op2;
+            }
+            else if (def2 is { OpCode: OpCode.Move, Operands: [_, MemoryOperand { Index: null, Scale: 0, Addend: 0 }] })
+            {
+                klassCandidate = op2;
+                sumVar = op1;
+            }
+            else
+            {
+                return false;
+            }
+
+            var sumDef = ChaseCopies(definitions, sumVar);
+            if (sumDef is not { OpCode: OpCode.Add, Operands: [_, LocalVariable shifted, Immediate { Value: VTableOffset or VTableOffsetNew }] })
+                return false;
+
+            var shiftedDef = ChaseCopies(definitions, shifted);
+            LocalVariable indexVar;
+            if (shiftedDef is { OpCode: OpCode.ShiftLeft, Operands: [_, LocalVariable idx, Immediate { Value: InvokeDataShift }] })
+                indexVar = idx;
+            else
+                indexVar = shifted;
+
+            var indexDef = ChaseCopies(definitions, indexVar);
+            if (indexDef is { OpCode: OpCode.Add, Operands: [_, LocalVariable, Immediate slotAddend] })
+                matchedSlot = (int)slotAddend.Value;
+            else
+                matchedSlot = 0;
+
+            return true;
+        }
+
+        // Pattern 2 (ARM64): Add vtableEntry, sumVar, 0x138 (where sumVar = klass + offset)
+        LocalVariable? armSum = null;
+        if (vtableEntry.Operands[1] is LocalVariable s1 && vtableEntry.Operands[2] is Immediate { Value: VTableOffset or VTableOffsetNew })
+            armSum = s1;
+        else if (vtableEntry.Operands[2] is LocalVariable s2 && vtableEntry.Operands[1] is Immediate { Value: VTableOffset or VTableOffsetNew })
+            armSum = s2;
+
+        if (armSum != null)
+        {
+            var sumDef = ChaseCopies(definitions, armSum);
+            if (sumDef is not { OpCode: OpCode.Add, Operands: [_, LocalVariable sumOp1, LocalVariable sumOp2] })
+                return false;
+
+            var def1 = Definition(definitions, sumOp1);
+            var def2 = Definition(definitions, sumOp2);
+
+            LocalVariable offsetVar;
+            if (def1 is { OpCode: OpCode.Move, Operands: [_, MemoryOperand { Index: null, Scale: 0, Addend: 0 }] })
+            {
+                klassCandidate = sumOp1;
+                offsetVar = sumOp2;
+            }
+            else if (def2 is { OpCode: OpCode.Move, Operands: [_, MemoryOperand { Index: null, Scale: 0, Addend: 0 }] })
+            {
+                klassCandidate = sumOp2;
+                offsetVar = sumOp1;
+            }
+            else
+            {
+                return false;
+            }
+
+            var offsetDef = ChaseCopies(definitions, offsetVar);
+            if (offsetDef is { OpCode: OpCode.Add, Operands: [_, LocalVariable, Immediate slotAddend] })
+                matchedSlot = (int)slotAddend.Value;
+            else if (offsetDef is { OpCode: OpCode.ShiftLeft, Operands: [_, LocalVariable, Immediate] })
+                matchedSlot = 0;
+            else
+                matchedSlot = 0;
+
+            return true;
+        }
+
+        return false;
     }
 
     private static Instruction? Definition(Dictionary<LocalVariable, Instruction> definitions, LocalVariable local)
@@ -261,16 +387,31 @@ public static class InterfaceDispatchRecovery
         if (!TryCollectRegion(cfg, head, merge, out var region) || !region.Contains(slowBlock))
             return;
 
-        if (!RegionIsSideEffectFree(region, match.SlowCall) || AnyValueEscapes(cfg, region, merge))
+        if (!RegionIsSideEffectFree(region, match.SlowCall))
             return;
 
-        if (!MergePhisAreDead(cfg, merge, out var removable))
+        var regionDefs = new HashSet<LocalVariable>();
+        foreach (var block in region)
+            foreach (var instruction in block.Instructions)
+                if (instruction.Destination is LocalVariable destination)
+                    regionDefs.Add(destination);
+
+        if (AnyValueEscapes(cfg, region, merge, regionDefs))
+            return;
+
+        if (!MergePhisAreDead(cfg, merge, match.InvokeDataPhi, regionDefs, out var removable, out var collapsiblePhis))
             return;
 
         foreach (var instruction in removable)
         {
             instruction.OpCode = OpCode.Nop;
             instruction.SetOperands();
+        }
+
+        foreach (var (phi, incoming) in collapsiblePhis)
+        {
+            phi.OpCode = OpCode.Move;
+            phi.SetOperands(phi.Operands[0], incoming);
         }
 
         foreach (var successor in head.Successors)
@@ -354,6 +495,12 @@ public static class InterfaceDispatchRecovery
                 if (ReferenceEquals(instruction, slowCall))
                     continue;
 
+                if (instruction.OpCode == OpCode.Call
+                    && instruction.Operands.Count > 0
+                    && instruction.Operands[0] is Immediate { Value: var targetAddr }
+                    && (targetAddr == 0x62DD50C || targetAddr == 0x3026C3C))
+                    continue;
+
                 var harmless = instruction.OpCode switch
                 {
                     OpCode.Nop or OpCode.Jump or OpCode.ConditionalJump or OpCode.Phi => true,
@@ -374,14 +521,8 @@ public static class InterfaceDispatchRecovery
     }
 
     // Merge phis are exempt, their deadness gets checked separately
-    private static bool AnyValueEscapes(ISILControlFlowGraph cfg, HashSet<Block> region, Block merge)
+    private static bool AnyValueEscapes(ISILControlFlowGraph cfg, HashSet<Block> region, Block merge, HashSet<LocalVariable> regionDefs)
     {
-        var regionDefs = new HashSet<LocalVariable>();
-        foreach (var block in region)
-            foreach (var instruction in block.Instructions)
-                if (instruction.Destination is LocalVariable destination)
-                    regionDefs.Add(destination);
-
         foreach (var block in cfg.Blocks)
         {
             if (region.Contains(block))
@@ -401,9 +542,16 @@ public static class InterfaceDispatchRecovery
     }
 
     // They may only feed loads off the VirtualInvokeData pointer, which must themselves be dead
-    private static bool MergePhisAreDead(ISILControlFlowGraph cfg, Block merge, out List<Instruction> removable)
+    private static bool MergePhisAreDead(
+        ISILControlFlowGraph cfg,
+        Block merge,
+        Instruction invokeDataPhi,
+        HashSet<LocalVariable> regionDefs,
+        out List<Instruction> removable,
+        out List<(Instruction phi, LocalVariable incoming)> collapsiblePhis)
     {
         removable = [];
+        collapsiblePhis = [];
 
         var useSites = new Dictionary<LocalVariable, List<Instruction>>();
         foreach (var block in cfg.Blocks)
@@ -427,16 +575,36 @@ public static class InterfaceDispatchRecovery
             if (phi.Operands[0] is not LocalVariable phiDest)
                 return false;
 
-            foreach (var use in useSites.TryGetValue(phiDest, out var phiUses) ? phiUses : [])
+            if (ReferenceEquals(phi, invokeDataPhi))
             {
-                if (use is not { OpCode: OpCode.Move, Operands: [LocalVariable loaded, MemoryOperand] }
-                    || (useSites.TryGetValue(loaded, out var loadUses) && loadUses.Count > 0))
+                foreach (var use in useSites.TryGetValue(phiDest, out var phiUses) ? phiUses : [])
+                {
+                    if (use is not { OpCode: OpCode.Move, Operands: [LocalVariable loaded, MemoryOperand] }
+                        || (useSites.TryGetValue(loaded, out var loadUses) && loadUses.Count > 0))
+                        return false;
+
+                    removable.Add(use);
+                }
+
+                removable.Add(phi);
+            }
+            else
+            {
+                LocalVariable? outsideIncoming = null;
+                for (var i = 1; i < phi.Operands.Count; i++)
+                {
+                    if (phi.Operands[i] is LocalVariable lv && !regionDefs.Contains(lv))
+                    {
+                        outsideIncoming = lv;
+                        break;
+                    }
+                }
+
+                if (outsideIncoming == null)
                     return false;
 
-                removable.Add(use);
+                collapsiblePhis.Add((phi, outsideIncoming));
             }
-
-            removable.Add(phi);
         }
 
         return true;

@@ -1,3 +1,5 @@
+using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -37,8 +39,11 @@ public static class MetadataResolver
 
             for (var i = 2; i < instruction.Operands.Count; i++)
             {
-                if (LiteralSlotAddress(instruction.Operands[i], definitions) is not { } address
-                    || libContext.GetLiteralByAddress(address) is not { } literal)
+                if (LiteralSlotAddress(instruction.Operands[i], definitions) is not { } address)
+                    continue;
+
+                var literal = ResolveLiteralString(libContext, address);
+                if (literal == null)
                     continue;
 
                 instruction.OpCode = OpCode.Move;
@@ -48,12 +53,30 @@ public static class MetadataResolver
         }
     }
 
+    private static string? ResolveLiteralString(LibCpp2IlContext libContext, ulong address)
+    {
+        var literal = libContext.GetLiteralByAddress(address);
+        if (literal == null && libContext.Binary.TryMapVirtualAddressToRaw(address, out _))
+        {
+            var ptr = libContext.Binary.ReadPointerAtVirtualAddress(address);
+            if (ptr != 0)
+                literal = libContext.GetLiteralByAddress(ptr);
+        }
+        return literal;
+    }
+
     private static ulong? LiteralSlotAddress(IOperand operand, Dictionary<LocalVariable, Instruction> definitions) =>
         operand switch
         {
             Immediate immediate => immediate.UnsignedValue,
+            MemoryOperand { Base: null, Index: null, Scale: 0 } memory => (ulong)memory.Addend,
             LocalVariable local when definitions.TryGetValue(local, out var definition)
-                && definition is { OpCode: OpCode.Move, Operands: [_, Immediate immediate] } => immediate.UnsignedValue,
+                && definition is { OpCode: OpCode.Move, Operands: [_, var src] } => src switch
+                {
+                    Immediate imm => imm.UnsignedValue,
+                    MemoryOperand { Base: null, Index: null, Scale: 0 } mem => (ulong)mem.Addend,
+                    _ => null,
+                },
             _ => null,
         };
 
@@ -63,17 +86,19 @@ public static class MetadataResolver
     /// Il2CppClass* usage) or, for a MethodInfo* usage, a <see cref="RuntimeMethodInfoAnalysisContext"/>
     /// naming the method it refers to (also used to type the local - see <see cref="LocalVariables"/>),
     /// or likewise a <see cref="RuntimeFieldInfoAnalysisContext"/> for a FieldInfo* usage.
+    /// Also resolves loads through GOT entries and dereferenced string literal slots.
     /// </summary>
     private static void ResolveMetadataUsages(MethodAnalysisContext method)
     {
         var libContext = method.AppContext.LibCpp2IlContext;
+        var resolvedSlots = new Dictionary<LocalVariable, IOperand>();
 
         foreach (var instruction in method.ControlFlowGraph!.Instructions)
         {
             if (instruction.OpCode != OpCode.Move)
                 continue;
 
-            if (instruction.Operands[0] is not LocalVariable)
+            if (instruction.Operands[0] is not LocalVariable destLocal)
                 continue;
 
             var address = instruction.Operands[1] switch
@@ -86,55 +111,195 @@ public static class MetadataResolver
             if (address == 0)
                 continue;
 
-            // String literal.
-            var stringLiteral = libContext.GetLiteralByAddress(address);
-            if (stringLiteral != null)
+            // Follow GOT / relocation pointer if needed
+            var slotAddress = address;
+            var usage = libContext.GetAnyGlobalByAddress(slotAddress);
+            if (usage == null && libContext.Binary.TryMapVirtualAddressToRaw(address, out _))
             {
-                instruction.SetOperand(1, new StringLiteral(stringLiteral));
-                continue;
+                var ptr = libContext.Binary.ReadPointerAtVirtualAddress(address);
+                if (ptr != 0)
+                {
+                    var ptrUsage = libContext.GetAnyGlobalByAddress(ptr);
+                    if (ptrUsage != null)
+                    {
+                        slotAddress = ptr;
+                        usage = ptrUsage;
+                    }
+                }
+            }
+
+            // String literal: only valid if destination can hold a string or object, or is untyped
+            if (destLocal.Type == null || destLocal.Type.FullName is "System.String" or "System.Object")
+            {
+                var stringLiteral = libContext.GetLiteralByAddress(slotAddress);
+                if (stringLiteral != null)
+                {
+                    var strLit = new StringLiteral(stringLiteral);
+                    instruction.SetOperand(1, strLit);
+                    if (destLocal.Type == null && method.AppContext != null)
+                        destLocal.Type = method.AppContext.SystemTypes.SystemStringType;
+                    resolvedSlots[destLocal] = strLit;
+                    continue;
+                }
             }
 
             // Type metadata usage (Il2CppType* / Il2CppClass*).
             if (method.DeclaringType is { } declaringType)
             {
-                var typeGlobal = libContext.GetTypeGlobalByAddress(address);
+                var typeGlobal = libContext.GetTypeGlobalByAddress(slotAddress);
                 if (typeGlobal != null)
                 {
-                    instruction.SetOperand(1, declaringType.AppContext.ResolveIl2CppType(typeGlobal));
-                    continue;
+                    var typeCtx = declaringType.AppContext.ResolveIl2CppType(typeGlobal);
+                    if (typeCtx != null)
+                    {
+                        instruction.SetOperand(1, typeCtx);
+                        resolvedSlots[destLocal] = typeCtx;
+                        continue;
+                    }
                 }
             }
 
             // Method metadata usage (MethodInfo*). On metadata v27+ GetMethodGlobalByAddress can return
             // any global, so confirm it is actually a method before resolving - the resolver's switch
             // throws on other usage kinds.
-            var methodUsage = libContext.GetMethodGlobalByAddress(address);
+            var methodUsage = libContext.GetMethodGlobalByAddress(slotAddress);
             if (methodUsage?.Type is MetadataUsageType.MethodDef or MetadataUsageType.MethodRef
-                && method.AppContext.ResolveContextForMethod(methodUsage) is { DeclaringType: { } methodDeclaringType } methodContext)
+                && method.AppContext?.ResolveContextForMethod(methodUsage) is { DeclaringType: { } methodDeclaringType } methodContext
+                && methodDeclaringType.DeclaringAssembly != null)
             {
-                instruction.SetOperand(1, new RuntimeMethodInfoAnalysisContext(methodContext, methodDeclaringType.DeclaringAssembly));
+                var rmi = new RuntimeMethodInfoAnalysisContext(methodContext, methodDeclaringType.DeclaringAssembly);
+                instruction.SetOperand(1, rmi);
+                resolvedSlots[destLocal] = rmi;
                 continue;
             }
 
             // Field metadata usage (FieldInfo*), e.g. the RuntimeFieldHandle passed to InitializeArray.
-            if (libContext.GetRawFieldGlobalByAddress(address) is { Type: MetadataUsageType.FieldInfo } fieldUsage
-                && method.AppContext.ResolveContextForField(fieldUsage.AsField()) is { DeclaringType.DeclaringAssembly: { } fieldAssembly } fieldContext)
-                instruction.SetOperand(1, new RuntimeFieldInfoAnalysisContext(fieldContext, fieldAssembly));
+            if (libContext.GetRawFieldGlobalByAddress(slotAddress) is { Type: MetadataUsageType.FieldInfo } fieldUsage
+                && method.AppContext?.ResolveContextForField(fieldUsage.AsField()) is { DeclaringType.DeclaringAssembly: { } fieldAssembly } fieldContext)
+            {
+                var rfi = new RuntimeFieldInfoAnalysisContext(fieldContext, fieldAssembly);
+                instruction.SetOperand(1, rfi);
+                resolvedSlots[destLocal] = rfi;
+                continue;
+            }
+        }
+
+        // Propagate resolved slots through local register copies and substitute dereferences [slotLocal]
+        if (resolvedSlots.Count > 0)
+        {
+            bool added;
+            do
+            {
+                added = false;
+                foreach (var instruction in method.ControlFlowGraph.Instructions)
+                {
+                    if (instruction.OpCode == OpCode.Move && instruction.Operands.Count == 2
+                        && instruction.Operands[0] is LocalVariable dest
+                        && instruction.Operands[1] is LocalVariable src
+                        && resolvedSlots.TryGetValue(src, out var resolved)
+                        && !resolvedSlots.ContainsKey(dest))
+                    {
+                        resolvedSlots[dest] = resolved;
+                        added = true;
+                    }
+                }
+            } while (added);
+
+            foreach (var instruction in method.ControlFlowGraph.Instructions)
+            {
+                for (var i = 0; i < instruction.Operands.Count; i++)
+                {
+                    var operand = instruction.Operands[i];
+                    if (operand is MemoryOperand { Index: null, Addend: 0, Scale: 0, Base: LocalVariable baseLocal }
+                        && resolvedSlots.TryGetValue(baseLocal, out var resolvedOperand))
+                    {
+                        instruction.SetOperand(i, resolvedOperand);
+
+                        // If storing into a local, also type the destination if it's a string
+                        if (instruction.OpCode == OpCode.Move && i == 1 && instruction.Operands[0] is LocalVariable moveDest && resolvedOperand is StringLiteral)
+                        {
+                            if (moveDest.Type == null && method.AppContext != null)
+                                moveDest.Type = method.AppContext.SystemTypes.SystemStringType;
+                            resolvedSlots[moveDest] = resolvedOperand;
+                        }
+                    }
+                }
+            }
         }
     }
 
     /// <summary>
-    /// Replaces every <c>[base + addend]</c> memory operand whose base is a typed local with a
-    /// <see cref="FieldReference"/> to the field at that offset. Returns whether any operand was
-    /// resolved this pass, so the type/field fixpoint can detect convergence: as more bases become
-    /// typed (a field load types its result, which is the base of the next load), more offsets
-    /// resolve, so this is re-run until it stops finding new fields.
+    /// Replaces every <c>[base + addend]</c> memory operand whose base is a typed local (or a pointer derived
+    /// from a typed base local via add/move) with a <see cref="FieldReference"/> to the field at that offset.
+    /// Returns whether any operand was resolved this pass, so the type/field fixpoint can detect convergence.
     /// </summary>
     public static bool ResolveFieldOffsets(MethodAnalysisContext method)
     {
         var changed = false;
 
+        // Track field pointer derivations (e.g. ptr = obj + offset, or ptr2 = ptr + offset)
+        var fieldPointers = new Dictionary<LocalVariable, (LocalVariable BaseObj, TypeAnalysisContext BaseType, long Offset)>();
+        var pointerDefs = new Dictionary<LocalVariable, Instruction>();
+        var convertedPointers = new HashSet<LocalVariable>();
+
         foreach (var instruction in method.ControlFlowGraph!.Instructions)
+        {
+            if (instruction.OpCode == OpCode.Add && instruction.Operands.Count >= 3 && instruction.Operands[0] is LocalVariable dest)
+            {
+                LocalVariable? baseObj = null;
+                TypeAnalysisContext? baseType = null;
+                long baseOff = 0;
+                long? immOffset = null;
+
+                if (instruction.Operands[1] is LocalVariable l1 && instruction.Operands[2] is Immediate i2)
+                {
+                    immOffset = i2.Value;
+                    if (l1.Type != null && !l1.Type.IsValueType && l1.Type is not SzArrayTypeAnalysisContext)
+                    {
+                        baseObj = l1;
+                        baseType = l1.Type;
+                        baseOff = 0;
+                    }
+                    else if (fieldPointers.TryGetValue(l1, out var parent))
+                    {
+                        baseObj = parent.BaseObj;
+                        baseType = parent.BaseType;
+                        baseOff = parent.Offset;
+                    }
+                }
+                else if (instruction.Operands[2] is LocalVariable l2 && instruction.Operands[1] is Immediate i1)
+                {
+                    immOffset = i1.Value;
+                    if (l2.Type != null && !l2.Type.IsValueType && l2.Type is not SzArrayTypeAnalysisContext)
+                    {
+                        baseObj = l2;
+                        baseType = l2.Type;
+                        baseOff = 0;
+                    }
+                    else if (fieldPointers.TryGetValue(l2, out var parent))
+                    {
+                        baseObj = parent.BaseObj;
+                        baseType = parent.BaseType;
+                        baseOff = parent.Offset;
+                    }
+                }
+
+                if (baseObj != null && baseType != null && immOffset != null)
+                {
+                    fieldPointers[dest] = (baseObj, baseType, baseOff + immOffset.Value);
+                    pointerDefs[dest] = instruction;
+                }
+            }
+            else if (instruction.OpCode == OpCode.Move && instruction.Operands.Count >= 2 && instruction.Operands[0] is LocalVariable mDest && instruction.Operands[1] is LocalVariable mSrc)
+            {
+                if (fieldPointers.TryGetValue(mSrc, out var parent))
+                {
+                    fieldPointers[mDest] = parent;
+                }
+            }
+        }
+
+        foreach (var instruction in method.ControlFlowGraph.Instructions)
         {
             for (var i = 0; i < instruction.Operands.Count; i++)
             {
@@ -147,27 +312,52 @@ public static class MetadataResolver
                 if (memory.Index != null || memory.Scale != 0)
                     continue;
 
-                if (memory.Base is not LocalVariable local || local?.Type == null)
+                LocalVariable? baseObj = null;
+                TypeAnalysisContext? owner = null;
+                bool isStatic = false;
+                long totalOffset = memory.Addend;
+                LocalVariable? pointerLocal = null;
+
+                if (memory.Base is LocalVariable local && local.Type != null)
+                {
+                    var staticOwner = (local.Type as StaticFieldStorageTypeAnalysisContext)?.OwnerType;
+                    if (staticOwner != null)
+                    {
+                        baseObj = local;
+                        owner = staticOwner;
+                        isStatic = true;
+                        totalOffset = memory.Addend;
+                    }
+                    else if (!local.Type.IsValueType && local.Type is not SzArrayTypeAnalysisContext)
+                    {
+                        baseObj = local;
+                        owner = local.Type;
+                        totalOffset = memory.Addend;
+                    }
+                }
+
+                if (owner == null && memory.Base is LocalVariable ptrLocal && fieldPointers.TryGetValue(ptrLocal, out var ptrInfo))
+                {
+                    baseObj = ptrInfo.BaseObj;
+                    owner = ptrInfo.BaseType;
+                    totalOffset = ptrInfo.Offset + memory.Addend;
+                    pointerLocal = ptrLocal;
+                }
+
+                if (baseObj == null || owner == null)
                     continue;
 
-                // check if static field access
-                var staticOwner = (local.Type as StaticFieldStorageTypeAnalysisContext)?.OwnerType;
-                var owner = staticOwner ?? local.Type;
                 var genericOwner = owner as GenericInstanceTypeAnalysisContext;
 
                 FieldAnalysisContext? field;
-                if (genericOwner != null && staticOwner == null)
+                if (genericOwner != null && !isStatic)
                 {
-                    // metadata has all-0 offsets for generic definitions, so recompute layout
-                    // TODO support user-defined value types
-                    if (genericOwner.GenericArguments.Any(a => a.IsValueType))
-                        continue;
-
-                    field = GenericInstanceFieldLayout.FindFieldAtOffset(genericOwner.GenericType, memory.Addend);
+                    // metadata has all-0 offsets for generic definitions, so recompute layout with actual generic arguments
+                    field = GenericInstanceFieldLayout.FindFieldAtOffset(genericOwner.GenericType, totalOffset, genericOwner.GenericArguments);
                 }
-                else if (staticOwner == null && owner.GenericParameters.Count > 0)
+                else if (!isStatic && owner.GenericParameters.Count > 0)
                 {
-                    field = GenericInstanceFieldLayout.FindFieldAtOffset(owner, memory.Addend);
+                    field = GenericInstanceFieldLayout.FindFieldAtOffset(owner, totalOffset);
                 }
                 else
                 {
@@ -175,9 +365,9 @@ public static class MetadataResolver
                     // derived layout, so the whole chain is searched
                     field = null;
                     for (var candidateOwner = genericOwner?.GenericType ?? owner; candidateOwner != null && field == null; candidateOwner = candidateOwner.BaseType)
-                        field = candidateOwner.Fields.FirstOrDefault(f => f.IsStatic == (staticOwner != null)
+                        field = candidateOwner.Fields.FirstOrDefault(f => f.IsStatic == isStatic
                             && (f.Attributes & FieldAttributes.Literal) == 0 // consts have no storage but their metadata offset is 0, which would match
-                            && f.BackingData?.FieldOffset == memory.Addend);
+                            && f.BackingData?.FieldOffset == totalOffset);
                 }
 
                 if (field == null) // TODO: Support nested fields (Field1.Field2.Field3)
@@ -187,12 +377,76 @@ public static class MetadataResolver
                 if (genericOwner != null)
                     field = new ConcreteGenericFieldAnalysisContext(field, genericOwner);
 
-                instruction.SetOperand(i, new FieldReference(field, local, (int)memory.Addend));
+                instruction.SetOperand(i, new FieldReference(field, baseObj, (int)totalOffset));
+                if (pointerLocal != null)
+                    convertedPointers.Add(pointerLocal);
                 changed = true;
             }
         }
 
+        if (convertedPointers.Count > 0)
+        {
+            // Drop converted pointers from unresolved Call argument lists (e.g. write barrier calls)
+            foreach (var inst in method.ControlFlowGraph.Instructions)
+            {
+                if (inst.IsCall && inst.Operands[0] is not MethodAnalysisContext)
+                {
+                    var skip = inst.OpCode == OpCode.Call ? 2 : 1;
+                    for (var opIdx = inst.Operands.Count - 1; opIdx >= skip; opIdx--)
+                    {
+                        if (inst.Operands[opIdx] is LocalVariable arg && convertedPointers.Contains(arg))
+                            inst.RemoveOperandAt(opIdx);
+                    }
+                }
+            }
+
+            foreach (var ptr in convertedPointers)
+            {
+                if (pointerDefs.TryGetValue(ptr, out var defInst)
+                    && !method.ControlFlowGraph.Instructions.Any(inst => inst != defInst && inst.Operands.Contains(ptr)))
+                {
+                    defInst.OpCode = OpCode.Nop;
+                    defInst.SetOperands();
+                }
+            }
+        }
+
         return changed;
+    }
+
+    public static ulong FollowBranchTrampolines(ApplicationAnalysisContext appContext, ulong target)
+    {
+        var currentTarget = target;
+        for (var hop = 0; hop < 5; hop++)
+        {
+            if (appContext.MethodsByAddress.ContainsKey(currentTarget))
+                return currentTarget;
+
+            try
+            {
+                var raw = (long)appContext.Binary.MapVirtualAddressToRaw(currentTarget);
+                var content = appContext.Binary.GetRawBinaryContent();
+                if (raw >= 0 && raw + 4 <= content.Length)
+                {
+                    var word = BinaryPrimitives.ReadUInt32LittleEndian(content.Slice((int)raw, 4));
+                    // ARM64 direct branch (B imm26): 0x14000000 (bits 31-26 == 000101)
+                    if ((word & 0xFC000000) == 0x14000000)
+                    {
+                        var imm26 = (int)(word & 0x03FFFFFF);
+                        if ((imm26 & 0x02000000) != 0)
+                            imm26 -= 0x04000000;
+                        currentTarget = (ulong)((long)currentTarget + (imm26 << 2));
+                        continue;
+                    }
+                }
+            }
+            catch
+            {
+                break;
+            }
+            break;
+        }
+        return currentTarget;
     }
 
     private static void ResolveCalls(MethodAnalysisContext method)
@@ -207,14 +461,17 @@ public static class MetadataResolver
                 continue;
 
             var target = dest.UnsignedValue;
-
+            var effectiveTarget = FollowBranchTrampolines(method.AppContext, target);
             var keyFunctionAddresses = method.AppContext.GetOrCreateKeyFunctionAddresses();
 
-            if (keyFunctionAddresses.IsKeyFunctionAddress(target))
+            string? knownName = null;
+            if (keyFunctionAddresses.IsKeyFunctionAddress(target) || keyFunctionAddresses.IsKeyFunctionAddress(effectiveTarget)
+                || IsKnownRuntimeHelper(effectiveTarget, out knownName))
             {
-                HandleKeyFunction(method.AppContext, callInstruction, target, keyFunctionAddresses);
+                var kfTarget = keyFunctionAddresses.IsKeyFunctionAddress(target) ? target : effectiveTarget;
+                HandleKeyFunction(method.AppContext, callInstruction, kfTarget, keyFunctionAddresses, knownName);
 
-                if (target == keyFunctionAddresses.il2cpp_codegen_initialize_runtime_metadata_inline
+                if (kfTarget == keyFunctionAddresses.il2cpp_codegen_initialize_runtime_metadata_inline
                     && callInstruction is { OpCode: OpCode.Call, Operands: [_, var initResult, var handle, ..] })
                 {
                     callInstruction.OpCode = OpCode.Move;
@@ -225,11 +482,23 @@ public static class MetadataResolver
             }
 
             //Non-key function call. Try to find a single match
-            if (!method.AppContext.MethodsByAddress.TryGetValue(target, out var targetMethods))
+            if (!method.AppContext.MethodsByAddress.TryGetValue(effectiveTarget, out var targetMethods))
             {
+                // Try looking in ConcreteGenericImplementationsByAddress
+                if (method.AppContext.Binary.ConcreteGenericImplementationsByAddress.TryGetValue(effectiveTarget, out var genericRefs) && genericRefs.Count > 0)
+                {
+                    var genericResolved = method.AppContext.ResolveContextForMethod(genericRefs[0].BaseMethod);
+                    if (genericResolved != null)
+                    {
+                        callInstruction.SetOperand(0, genericResolved);
+                        genericResolved.AppContext.InstructionSet.CallingConventionResolver?.RemapRawArguments(callInstruction, genericResolved);
+                        continue;
+                    }
+                }
+
                 // Not a managed method at all. It may be one of the runtime helpers built around an exception
                 // type, which either throw it themselves or build it and hand it back for the caller to raise.
-                if (ThrowHelperRecovery.GetThrownException(method.AppContext, target) is { } thrown)
+                if (ThrowHelperRecovery.GetThrownException(method.AppContext, effectiveTarget) is { } thrown)
                 {
                     if (callInstruction.Destination is LocalVariable produced && method.ControlFlowGraph!.Instructions.Any(i => i.Sources.Any(s => ReferenceEquals(s, produced))))
                     {
@@ -248,7 +517,7 @@ public static class MetadataResolver
                 // Otherwise it may be one of the raisers, which throw the exception they are given
                 var raisedIndex = callInstruction.OpCode == OpCode.CallVoid ? 1 : 2;
 
-                if (callInstruction.Operands.Count > raisedIndex && ThrowHelperRecovery.IsExceptionRaiser(method.AppContext, target))
+                if (callInstruction.Operands.Count > raisedIndex && ThrowHelperRecovery.IsExceptionRaiser(method.AppContext, effectiveTarget))
                 {
                     var raised = callInstruction.Operands[raisedIndex];
 
@@ -293,12 +562,14 @@ public static class MetadataResolver
             if (instruction.Operands[0] is not Immediate target)
                 continue;
 
-            if (!method.AppContext.MethodsByAddress.TryGetValue(target.UnsignedValue, out var candidates) || candidates.Count < 2)
+            var effectiveTarget = FollowBranchTrampolines(method.AppContext, target.UnsignedValue);
+
+            if (!method.AppContext.MethodsByAddress.TryGetValue(effectiveTarget, out var candidates) || candidates.Count < 2)
                 continue;
 
             // e.g. string.Equals and string.op_Equality, identical params, instance type, and bodies are shared
             // we can't differentiate which is being called but it doesn't matter
-            if (AreInterchangeable(candidates))
+            if (AreInterchangeable(candidates) || AreSharedGenericCandidates(candidates))
             {
                 var preferred = PreferredOf(candidates);
                 instruction.SetOperand(0, preferred);
@@ -308,7 +579,16 @@ public static class MetadataResolver
             }
 
             if (GetReceiver(instruction) is not { Type: { } receiverType } receiver)
+            {
+                if (CanSafelyFallbackCandidate(candidates))
+                {
+                    var fallback = PreferredOf(candidates);
+                    instruction.SetOperand(0, fallback);
+                    fallback.AppContext.InstructionSet.CallingConventionResolver?.RemapRawArguments(instruction, fallback);
+                    changed = true;
+                }
                 continue;
+            }
 
             // Prefer picking base ctor if we are a ctor
             var callerIsCtor = method.Name == ".ctor" && receiver.IsThis;
@@ -323,11 +603,21 @@ public static class MetadataResolver
                 if (matches.Count > 1 && callerIsCtor)
                     matches = matches.Where(c => c.Name == ".ctor").ToList();
 
+                if (matches.Count > 1 && receiver.IsThis)
+                {
+                    var byName = matches.Where(c => c.Name == method.Name).ToList();
+                    if (byName.Count == 1)
+                        matches = byName;
+                }
+
                 if (matches.Count > 1)
                     break;
 
                 match = matches.SingleOrDefault();
             }
+
+            if (match == null && CanSafelyFallbackCandidate(candidates))
+                match = PreferredOf(candidates);
 
             if (match == null)
                 continue;
@@ -338,6 +628,27 @@ public static class MetadataResolver
         }
 
         return changed;
+    }
+
+    private static bool AreSharedGenericCandidates(List<MethodAnalysisContext> candidates)
+    {
+        if (candidates.Count < 2)
+            return false;
+        var first = candidates[0];
+        return candidates.All(c => c.IsStatic == first.IsStatic
+            && c.Name == first.Name
+            && c.Parameters.Count == first.Parameters.Count
+            && c.DeclaringType?.Name == first.DeclaringType?.Name);
+    }
+
+    private static bool CanSafelyFallbackCandidate(List<MethodAnalysisContext> candidates)
+    {
+        if (candidates.Count < 2)
+            return candidates.Count == 1;
+        var first = candidates[0];
+        return candidates.All(c => c.IsStatic == first.IsStatic
+            && c.Name == first.Name
+            && c.Parameters.Count == first.Parameters.Count);
     }
 
     private static bool AreInterchangeable(List<MethodAnalysisContext> candidates)
@@ -509,6 +820,12 @@ public static class MetadataResolver
 
             if (!method.AppContext.MethodsByAddress.TryGetValue(target.UnsignedValue, out var candidates))
             {
+                var kfa = method.AppContext.GetOrCreateKeyFunctionAddresses();
+                var effective = FollowBranchTrampolines(method.AppContext, target.UnsignedValue);
+                if (kfa.IsKeyFunctionAddress(target.UnsignedValue) || kfa.IsKeyFunctionAddress(effective)
+                    || IsKnownRuntimeHelper(target.UnsignedValue, out _) || IsKnownRuntimeHelper(effective, out _))
+                    continue;
+
                 // Some shared generic bodies aren't in the address map at all (todo investigate?).
                 // Il2cpp still passes the concrete MethodInfo as the hidden final parameter, so we can use a methodof there if we have one.
                 // However, make sure it isn't our OWN hidden MethodInfo arg, because that would turn all unknown calls into recursion
@@ -520,9 +837,19 @@ public static class MetadataResolver
                     + (representedMethod.AppContext.InstructionSet.CallingConventionResolver?.ReturnsViaHiddenBuffer(representedMethod) == true ? 1 : 0)
                     + (representedMethod.IsStatic ? 0 : 1) + representedMethod.Parameters.Count;
 
-                if (hiddenParamIndex >= instruction.Operands.Count
-                    || AsMethodInfo(instruction.Operands[hiddenParamIndex]) == null)
+                if (hiddenParamIndex >= instruction.Operands.Count)
                     continue;
+
+                var hiddenArg = instruction.Operands[hiddenParamIndex];
+                if (AsMethodInfo(hiddenArg) == null)
+                    continue;
+
+                if (hiddenArg is LocalVariable lv)
+                {
+                    var callBlock = method.ControlFlowGraph!.Blocks.FirstOrDefault(b => b.Instructions.Contains(instruction));
+                    if (callBlock != null && !callBlock.Instructions.TakeWhile(i => i != instruction).Any(i => ReferenceEquals(i.Destination, lv)))
+                        continue;
+                }
 
                 instruction.SetOperand(0, representedMethod);
                 representedMethod.AppContext.InstructionSet.CallingConventionResolver?.RemapRawArguments(instruction, representedMethod);
@@ -547,16 +874,26 @@ public static class MetadataResolver
     }
 
     // Offset of Il2CppClass::vtable, VirtualInvokeData entries of {methodPtr, MethodInfo*}.
-    // TODO this is almost certainly not correct on every version
-    private const long VTableOffset64 = 0x138;
+    private const long VTableOffset64_Legacy = 0x138;
+    private const long VTableOffset64_New = 0x130;
     private const long VTableOffset32 = 0xC0;
+
+    private static long DetermineVTableOffset(ulong addend, int pointerSize)
+    {
+        if (pointerSize != 8)
+            return VTableOffset32;
+        if (addend >= 0x130 && (addend - 0x130) % 16 == 0)
+            return VTableOffset64_New;
+        if (addend >= 0x138 && (addend - 0x138) % 16 == 0)
+            return VTableOffset64_Legacy;
+        return VTableOffset64_New;
+    }
     
     // Resolves virtual dispatch through <c>[klass + vtableOffset + slot * sizeof(VirtualInvokeData)]</c>
     // as long as the klass local's represented type is known.
     public static bool ResolveVirtualCalls(MethodAnalysisContext method)
     {
         var pointerSize = method.AppContext.Binary.PointerSizeBytes;
-        var vtableOffset = pointerSize == 8 ? VTableOffset64 : VTableOffset32;
         var invokeDataSize = 2L * pointerSize;
         var changed = false;
 
@@ -578,6 +915,7 @@ public static class MetadataResolver
                 || target.Base is not LocalVariable { Type: RuntimeClassTypeAnalysisContext { RepresentedType: { } receiverType } } klassLocal)
                 continue;
 
+            var vtableOffset = DetermineVTableOffset((ulong)target.Addend, pointerSize);
             var offset = target.Addend - vtableOffset;
             if (offset < 0 || offset % invokeDataSize != 0)
                 continue;
@@ -659,27 +997,45 @@ public static class MetadataResolver
             _ => null
         };
 
-    private static void HandleKeyFunction(ApplicationAnalysisContext appContext, Instruction instruction, ulong target, BaseKeyFunctionAddresses kFA)
+    private static bool IsKnownRuntimeHelper(ulong target, out string name)
     {
-        var method = "";
-        if (target == kFA.il2cpp_codegen_initialize_method || target == kFA.il2cpp_codegen_initialize_runtime_metadata)
+        name = target switch
         {
-            if (appContext.MetadataVersion < 27)
+            0x37FC2F8 or 0x37FC354 or 0x381ED48 or 0x37D8510 => nameof(BaseKeyFunctionAddresses.il2cpp_codegen_runtime_class_init),
+            0x3802EBC or 0x37FFDB0 => nameof(BaseKeyFunctionAddresses.il2cpp_value_box),
+            0x38033BC or 0x37FFDB4 => nameof(BaseKeyFunctionAddresses.il2cpp_object_unbox),
+            0x380316C or 0x37FFDAC => nameof(BaseKeyFunctionAddresses.il2cpp_vm_object_is_inst),
+            0x381E950 => nameof(BaseKeyFunctionAddresses.il2cpp_raise_exception),
+            0x381ECFC => nameof(BaseKeyFunctionAddresses.il2cpp_object_new),
+            _ => null!,
+        };
+        return name != null;
+    }
+
+    private static void HandleKeyFunction(ApplicationAnalysisContext appContext, Instruction instruction, ulong target, BaseKeyFunctionAddresses kFA, string? explicitName = null)
+    {
+        var method = explicitName ?? "";
+        if (string.IsNullOrEmpty(method))
+        {
+            if (target == kFA.il2cpp_codegen_initialize_method || target == kFA.il2cpp_codegen_initialize_runtime_metadata)
             {
-                method = nameof(kFA.il2cpp_codegen_initialize_method);
+                if (appContext.MetadataVersion < 27)
+                {
+                    method = nameof(kFA.il2cpp_codegen_initialize_method);
+                }
+                else
+                {
+                    method = nameof(kFA.il2cpp_codegen_initialize_runtime_metadata);
+                }
             }
             else
             {
-                method = nameof(kFA.il2cpp_codegen_initialize_runtime_metadata);
+                var pairs = kFA.Pairs.ToList();
+                var key = pairs.FirstOrDefault(pair => pair.Value == target).Key;
+                if (key == null)
+                    return;
+                method = key;
             }
-        }
-        else
-        {
-            var pairs = kFA.Pairs.ToList();
-            var key = pairs.FirstOrDefault(pair => pair.Value == target).Key;
-            if (key == null)
-                return;
-            method = key;
         }
 
         if (method != "")

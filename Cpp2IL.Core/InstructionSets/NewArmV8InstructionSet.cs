@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Disarm;
@@ -13,6 +14,8 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 {
+    private readonly ConcurrentDictionary<ulong, (IReadOnlyList<ulong> DataReferences, IReadOnlyList<ulong> CallTargets)> _throwHelperCache = new();
+
     [ThreadStatic]
     private static Dictionary<string, ulong>? adrpOffsets;
 
@@ -52,23 +55,30 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
             if (startOfNextFunction > 0)
             {
-                var startRaw = (int)binary.MapVirtualAddressToRaw(context.UnderlyingPointer);
-                if (startRaw > 0 && startRaw + count <= binary.RawLength)
-                    return new BinarySlice(binary, startRaw, count);
+                if (binary.TryMapVirtualAddressToRaw(context.UnderlyingPointer, out var startRaw64))
+                {
+                    var startRaw = (int)startRaw64;
+                    if (startRaw > 0 && startRaw + count <= binary.RawLength)
+                        return new BinarySlice(binary, startRaw, count);
+                }
             }
         }
 
         var result = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.AppContext, context.UnderlyingPointer);
         var lastInsn = result.LastValid();
 
-        var start = (int)binary.MapVirtualAddressToRaw(context.UnderlyingPointer);
+        if (!binary.TryMapVirtualAddressToRaw(context.UnderlyingPointer, out var start64) ||
+            !binary.TryMapVirtualAddressToRaw(lastInsn.Address, out var lastInsnRaw64))
+            return new BinarySlice(binary, 0, 0);
+
+        var start = (int)start64;
         // Map the last instruction (always within segment) and add 4 (ARM64 instruction size).
         // This avoids mapping endVa which may land exactly at a segment boundary gap.
-        var end = (int)binary.MapVirtualAddressToRaw(lastInsn.Address) + 4;
+        var end = (int)lastInsnRaw64 + 4;
 
         //Sanity check
-        if (start < 0 || end < 0 || start >= binary.RawLength || end >= binary.RawLength)
-            throw new Exception($"Failed to map virtual address 0x{context.UnderlyingPointer:X} to raw address for method {context!.DeclaringType?.FullName}/{context.Name} - start: 0x{start:X}, end: 0x{end:X} are out of bounds for length {binary.RawLength}.");
+        if (start < 0 || end < 0 || start >= binary.RawLength || end >= binary.RawLength || end < start)
+            return new BinarySlice(binary, 0, 0);
 
         return new BinarySlice(binary, start, end - start);
     }
@@ -80,18 +90,30 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
     public override (IReadOnlyList<ulong> DataReferences, IReadOnlyList<ulong> CallTargets) InspectPotentialThrowHelper(ApplicationAnalysisContext context, ulong address)
     {
+        if (address == 0)
+            return ([], []);
+
+        if (_throwHelperCache.TryGetValue(address, out var cached))
+            return cached;
+
         //Deliberately not calling NewArm64Utils here, it's too slow
         const int maxInstructions = 48;
 
         var binary = context.Binary;
-        var rawStart = (int)binary.MapVirtualAddressToRaw(address);
-        if (rawStart <= 0)
+        if (!binary.TryMapVirtualAddressToRaw(address, out var rawStart64) || rawStart64 <= 0)
+        {
+            _throwHelperCache[address] = ([], []);
             return ([], []);
+        }
 
+        var rawStart = (int)rawStart64;
         var content = binary.GetRawBinaryContent();
         var window = System.Math.Min(maxInstructions * 4, content.Length - rawStart);
         if (window < 4)
+        {
+            _throwHelperCache[address] = ([], []);
             return ([], []);
+        }
 
         List<Arm64Instruction> body;
         try
@@ -100,6 +122,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         }
         catch
         {
+            _throwHelperCache[address] = ([], []);
             return ([], []);
         }
 
@@ -121,6 +144,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     dataReferences.Add((ulong)((long)insn.Address + insn.Op1Imm));
                     break;
                 case Arm64Mnemonic.BL:
+                case Arm64Mnemonic.B when insn.MnemonicConditionCode is Arm64ConditionCode.NONE or Arm64ConditionCode.AL:
                     callTargets.Add(insn.BranchTarget);
                     break;
             }
@@ -133,7 +157,9 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
         }
 
-        return (dataReferences, callTargets);
+        var res = (dataReferences, callTargets);
+        _throwHelperCache[address] = res;
+        return res;
     }
 
     public override List<Instruction> GetIsilFromMethod(MethodAnalysisContext context)
@@ -542,8 +568,35 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                         break;
                     }
 
+                    // ADRP page + immediate offset computes an absolute constant address
+                    if (instruction.Op2Kind == Arm64OperandKind.Immediate && adrpOffsets!.TryGetValue(NormalizeRegister(instruction.Op1Reg), out var page) && !setsFlags)
+                    {
+                        var target = isSubtract ? (long)page - instruction.Op2Imm : (long)page + instruction.Op2Imm;
+                        Add(address, OpCode.Move, ConvertOperand(instruction, 0), Imm(target));
+                        adrpOffsets[NormalizeRegister(instruction.Op0Reg)] = (ulong)target;
+                        break;
+                    }
+                    adrpOffsets!.Remove(NormalizeRegister(instruction.Op0Reg));
+
                     var src1 = ConvertOperand(instruction, 1);
                     var src2 = ConvertOperand(instruction, 2);
+
+                    if (instruction.Op2Kind == Arm64OperandKind.Register && instruction.Op3Imm > 0)
+                    {
+                        if (instruction.FinalOpShiftType == Arm64ShiftType.LSL)
+                        {
+                            var shifted = new Register(null, $"TEMP_{instruction.Op2Reg}_LSL");
+                            Add(address, OpCode.ShiftLeft, shifted, src2, Imm(instruction.Op3Imm));
+                            src2 = shifted;
+                        }
+                        else if (instruction.FinalOpShiftType is Arm64ShiftType.LSR or Arm64ShiftType.ASR)
+                        {
+                            var shifted = new Register(null, $"TEMP_{instruction.Op2Reg}_SHR");
+                            Add(address, OpCode.ShiftRight, shifted, src2, Imm(instruction.Op3Imm));
+                            src2 = shifted;
+                        }
+                    }
+
                     // a discarded result means this is only about the flags
                     var dest = IsReg31(instruction.Op0Reg) ? new Register(null, "TEMP") : ConvertOperand(instruction, 0);
 
@@ -799,12 +852,9 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 {
                     var target = (ulong)((long)address + instruction.Op1Imm);
                     var temp = new Register(null, "TEMP");
+                    var op = instruction.Mnemonic == Arm64Mnemonic.CBZ ? OpCode.CheckEqual : OpCode.CheckNotEqual;
 
-                    Add(address, OpCode.CheckEqual, temp, ConvertOperand(instruction, 0), Imm(0));
-
-                    if (instruction.Mnemonic == Arm64Mnemonic.CBNZ)
-                        Add(address, OpCode.Not, temp, temp);
-
+                    Add(address, op, temp, ConvertOperand(instruction, 0), Imm(0));
                     Add(address, OpCode.ConditionalJump, Imm(target), temp);
                     break;
                 }
@@ -813,12 +863,17 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 {
                     var target = (ulong)((long)address + instruction.Op2Imm);
                     var temp = new Register(null, "TEMP");
+                    var op = instruction.Mnemonic == Arm64Mnemonic.TBZ ? OpCode.CheckEqual : OpCode.CheckNotEqual;
 
-                    Add(address, OpCode.And, temp, ConvertOperand(instruction, 0), Imm(1L << (int)instruction.Op1Imm));
-                    Add(address, OpCode.CheckEqual, temp, temp, Imm(0));
-
-                    if (instruction.Mnemonic == Arm64Mnemonic.TBNZ)
-                        Add(address, OpCode.Not, temp, temp);
+                    if (instruction.Op1Imm == 0)
+                    {
+                        Add(address, op, temp, ConvertOperand(instruction, 0), Imm(0));
+                    }
+                    else
+                    {
+                        Add(address, OpCode.And, temp, ConvertOperand(instruction, 0), Imm(1L << (int)instruction.Op1Imm));
+                        Add(address, op, temp, temp, Imm(0));
+                    }
 
                     Add(address, OpCode.ConditionalJump, Imm(target), temp);
                     break;
@@ -887,8 +942,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
         }
 
-        // any register write invalidates a tracked ADRP page address (ADRP itself just set one)
-        if (instruction.Mnemonic != Arm64Mnemonic.ADRP && instruction.Op0Kind == Arm64OperandKind.Register)
+        // any register write invalidates a tracked ADRP page address (ADRP itself just set one, ADD handled in its case)
+        if (instruction.Mnemonic != Arm64Mnemonic.ADRP && instruction.Mnemonic != Arm64Mnemonic.ADD && instruction.Op0Kind == Arm64OperandKind.Register)
             adrpOffsets!.Remove(NormalizeRegister(instruction.Op0Reg));
         if (instruction.MemIndexMode != Arm64MemoryIndexMode.Offset && instruction.MemBase != Arm64Register.INVALID)
             adrpOffsets!.Remove(NormalizeRegister(instruction.MemBase));

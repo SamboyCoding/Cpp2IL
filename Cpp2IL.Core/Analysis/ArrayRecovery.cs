@@ -33,24 +33,175 @@ public static class ArrayRecovery
     {
         var pointerSize = method.AppContext.Binary.PointerSizeBytes;
 
+        // Track array pointer derivations (e.g. ptr = array + 32, or ptr2 = ptr + 8)
+        var arrayPointers = new Dictionary<LocalVariable, (LocalVariable Array, SzArrayTypeAnalysisContext ArrayType, long Offset)>();
+        var indexedArrayPointers = new Dictionary<LocalVariable, (LocalVariable Array, SzArrayTypeAnalysisContext ArrayType, IOperand Index, int Scale)>();
+        var pointerDefs = new Dictionary<LocalVariable, Instruction>();
+        var convertedPointers = new HashSet<LocalVariable>();
+
         foreach (var instruction in method.ControlFlowGraph!.Instructions)
         {
             RecoverAllocation(instruction);
 
+            if (instruction.OpCode == OpCode.Add && instruction.Operands.Count >= 3 && instruction.Operands[0] is LocalVariable dest)
+            {
+                LocalVariable? arrLocal = null;
+                SzArrayTypeAnalysisContext? arrType = null;
+                long baseOff = 0;
+                long? immOffset = null;
+
+                if (instruction.Operands[1] is LocalVariable l1 && instruction.Operands[2] is Immediate i2)
+                {
+                    immOffset = i2.Value;
+                    if (l1.Type is SzArrayTypeAnalysisContext st)
+                    {
+                        arrLocal = l1;
+                        arrType = st;
+                        baseOff = 0;
+                    }
+                    else if (arrayPointers.TryGetValue(l1, out var parent))
+                    {
+                        arrLocal = parent.Array;
+                        arrType = parent.ArrayType;
+                        baseOff = parent.Offset;
+                    }
+                }
+                else if (instruction.Operands[2] is LocalVariable l2 && instruction.Operands[1] is Immediate i1)
+                {
+                    immOffset = i1.Value;
+                    if (l2.Type is SzArrayTypeAnalysisContext st)
+                    {
+                        arrLocal = l2;
+                        arrType = st;
+                        baseOff = 0;
+                    }
+                    else if (arrayPointers.TryGetValue(l2, out var parent))
+                    {
+                        arrLocal = parent.Array;
+                        arrType = parent.ArrayType;
+                        baseOff = parent.Offset;
+                    }
+                }
+                else if (instruction.Operands[1] is LocalVariable vl1 && instruction.Operands[2] is LocalVariable vl2)
+                {
+                    // Variable index addition: ptr = array + (index << shift)
+                    LocalVariable? candArr = vl1.Type is SzArrayTypeAnalysisContext ? vl1 : (vl2.Type is SzArrayTypeAnalysisContext ? vl2 : null);
+                    LocalVariable? candIdx = ReferenceEquals(candArr, vl1) ? vl2 : (ReferenceEquals(candArr, vl2) ? vl1 : null);
+
+                    if (candArr != null && candArr.Type is SzArrayTypeAnalysisContext st && candIdx != null)
+                    {
+                        IOperand realIndex = candIdx;
+                        int scale = 1;
+
+                        var shiftDef = method.ControlFlowGraph.Instructions.FirstOrDefault(i => i.OpCode == OpCode.ShiftLeft
+                            && ReferenceEquals(i.Operands[0], candIdx) && i.Operands.Count >= 3 && i.Operands[2] is Immediate);
+
+                        if (shiftDef != null && shiftDef.Operands[2] is Immediate shiftImm)
+                        {
+                            realIndex = shiftDef.Operands[1];
+                            scale = 1 << (int)shiftImm.Value;
+                        }
+
+                        indexedArrayPointers[dest] = (candArr, st, realIndex, scale);
+                        pointerDefs[dest] = instruction;
+                    }
+                }
+
+                if (arrLocal != null && arrType != null && immOffset != null)
+                {
+                    arrayPointers[dest] = (arrLocal, arrType, baseOff + immOffset.Value);
+                    pointerDefs[dest] = instruction;
+                }
+            }
+            else if (instruction.OpCode == OpCode.Move && instruction.Operands.Count >= 2 && instruction.Operands[0] is LocalVariable mDest && instruction.Operands[1] is LocalVariable mSrc)
+            {
+                if (mSrc.Type is SzArrayTypeAnalysisContext st)
+                {
+                    arrayPointers[mDest] = (mSrc, st, 0);
+                }
+                else if (arrayPointers.TryGetValue(mSrc, out var parent))
+                {
+                    arrayPointers[mDest] = parent;
+                }
+            }
+        }
+
+        foreach (var instruction in method.ControlFlowGraph.Instructions)
+        {
             for (var i = 0; i < instruction.Operands.Count; i++)
             {
-                if (instruction.Operands[i] is not MemoryOperand memory
-                    || memory.Base is not LocalVariable { Type: SzArrayTypeAnalysisContext arrayType } array)
+                if (instruction.Operands[i] is not MemoryOperand memory)
                     continue;
 
-                if (memory.Index == null && memory.Scale == 0 && memory.Addend == LengthOffset(pointerSize))
+                LocalVariable? array = null;
+                SzArrayTypeAnalysisContext? arrayType = null;
+                long combinedAddend = memory.Addend;
+
+                var baseLocal = memory.Base as LocalVariable;
+
+                if (baseLocal != null && indexedArrayPointers.TryGetValue(baseLocal, out var idxInfo))
+                {
+                    var elemSize = ElementSize(idxInfo.ArrayType.ElementType, pointerSize);
+                    if (elemSize > 0 && (idxInfo.Scale == elemSize || idxInfo.Scale == 1) && memory.Addend == ElementsOffset(pointerSize) && memory.Index == null)
+                    {
+                        instruction.SetOperand(i, new ArrayAccess(idxInfo.Array, idxInfo.Index));
+                        convertedPointers.Add(baseLocal);
+                        continue;
+                    }
+                }
+
+                if (baseLocal?.Type is SzArrayTypeAnalysisContext at)
+                {
+                    array = baseLocal;
+                    arrayType = at;
+                }
+                else if (baseLocal != null && arrayPointers.TryGetValue(baseLocal, out var ptrInfo))
+                {
+                    array = ptrInfo.Array;
+                    arrayType = ptrInfo.ArrayType;
+                    combinedAddend = ptrInfo.Offset + memory.Addend;
+                }
+
+                if (array == null || arrayType == null)
+                    continue;
+
+                if (memory.Index == null && memory.Scale == 0 && combinedAddend == LengthOffset(pointerSize))
                 {
                     instruction.SetOperand(i, new ArrayLength(array));
                     continue;
                 }
 
-                if (ElementIndex(memory, arrayType, pointerSize) is { } index)
+                var effectiveMem = new MemoryOperand(array, memory.Index, combinedAddend, memory.Scale);
+                if (ElementIndex(effectiveMem, arrayType, pointerSize) is { } index)
+                {
                     instruction.SetOperand(i, new ArrayAccess(array, index));
+                    if (baseLocal != null && pointerDefs.ContainsKey(baseLocal))
+                        convertedPointers.Add(baseLocal);
+                }
+            }
+        }
+
+        foreach (var ptr in convertedPointers)
+        {
+            if (pointerDefs.TryGetValue(ptr, out var defInst)
+                && !method.ControlFlowGraph.Instructions.Any(inst => inst != defInst && inst.Operands.Contains(ptr)))
+            {
+                defInst.OpCode = OpCode.Nop;
+                defInst.SetOperands();
+            }
+
+            if (indexedArrayPointers.TryGetValue(ptr, out var idxInfo) && idxInfo.Scale > 1)
+            {
+                var shiftDef = method.ControlFlowGraph.Instructions.FirstOrDefault(i => i.OpCode == OpCode.ShiftLeft
+                    && i.Operands.Count >= 3 && Equals(i.Operands[1], idxInfo.Index)
+                    && i.Operands[0] is LocalVariable shiftDest
+                    && !method.ControlFlowGraph.Instructions.Any(inst => inst != i && inst.Operands.Contains(shiftDest)));
+
+                if (shiftDef != null)
+                {
+                    shiftDef.OpCode = OpCode.Nop;
+                    shiftDef.SetOperands();
+                }
             }
         }
     }
@@ -70,6 +221,7 @@ public static class ArrayRecovery
                 var stores = new List<(Block Block, Instruction Instruction)>();
                 var current = block;
                 var index = current.Instructions.IndexOf(allocation) + 1;
+                var visitedBlocks = new HashSet<Block> { current };
 
                 while (true)
                 {
@@ -79,7 +231,11 @@ public static class ArrayRecovery
                         if (current.Successors.Count != 1 || current.Successors[0].Predecessors.Count != 1)
                             break;
 
-                        current = current.Successors[0];
+                        var next = current.Successors[0];
+                        if (!visitedBlocks.Add(next))
+                            break;
+
+                        current = next;
                         index = 0;
                         continue;
                     }

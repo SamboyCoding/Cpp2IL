@@ -10,18 +10,35 @@ public class DominatorInfo
     public Dictionary<Block, Block?> ImmediateDominators = new();
     public Dictionary<Block, Block?> ImmediatePostDominators = new();
     public Dictionary<Block, HashSet<Block>> PostDominators = new();
-    public Dictionary<Block, HashSet<Block>> Dominators = new();
+
+    private Dictionary<Block, HashSet<Block>>? _dominatorsCache;
+    public Dictionary<Block, HashSet<Block>> Dominators
+    {
+        get
+        {
+            if (_dominatorsCache == null)
+            {
+                _dominatorsCache = new();
+                foreach (var kvp in ImmediateDominators)
+                {
+                    var block = kvp.Key;
+                    var set = new HashSet<Block> { block };
+                    var cur = ImmediateDominators[block];
+                    while (cur != null)
+                    {
+                        set.Add(cur);
+                        cur = ImmediateDominators.TryGetValue(cur, out var parent) ? parent : null;
+                    }
+                    _dominatorsCache[block] = set;
+                }
+            }
+            return _dominatorsCache;
+        }
+    }
 
     public DominatorInfo(ISILControlFlowGraph graph)
     {
-        // The post dominators are not actually used by anything.
-
-        CalculateDominators(graph);
-        //CalculatePostDominators(graph);
-
-        CalculateImmediateDominators(graph);
-        //CalculateImmediatePostDominators(graph);
-
+        CalculateDominatorsFast(graph);
         CalculateDominanceFrontiers(graph);
         BuildDominanceTree();
     }
@@ -31,17 +48,24 @@ public class DominatorInfo
         if (a == b)
             return true;
 
-        if (Dominators.TryGetValue(b, out var bDominators) && Dominators.ContainsKey(a))
-            return bDominators.Contains(a);
+        var current = b;
+        while (current != null)
+        {
+            if (current == a)
+                return true;
+            current = ImmediateDominators.TryGetValue(current, out var idom) ? idom : null;
+        }
 
         return false;
     }
 
     private void BuildDominanceTree()
     {
-        foreach (var block in ImmediateDominators.Keys)
+        DominanceTree.Clear();
+        foreach (var kvp in ImmediateDominators)
         {
-            var immediateDominator = ImmediateDominators[block];
+            var block = kvp.Key;
+            var immediateDominator = kvp.Value;
             if (immediateDominator == null) continue;
 
             if (!DominanceTree.ContainsKey(immediateDominator))
@@ -51,115 +75,114 @@ public class DominatorInfo
         }
     }
 
-    private void CalculateDominators(ISILControlFlowGraph graph)
+    /// <summary>
+    /// Fast Cooper-Harvey-Kennedy iterative dominator algorithm.
+    /// Runs in O(N) time with virtually zero heap allocations.
+    /// </summary>
+    private void CalculateDominatorsFast(ISILControlFlowGraph graph)
     {
-        Dominators.Clear();
+        ImmediateDominators.Clear();
+        _dominatorsCache = null;
 
-        // Entry block dominates itself, all others are initialized with all blocks
-        foreach (var block in graph.Blocks)
+        if (graph.Blocks.Count == 0)
+            return;
+
+        var entry = graph.EntryBlock;
+        if (entry == null)
+            return;
+
+        // 1. Compute Post-Order traversal of reachable blocks via DFS
+        var postOrder = new List<Block>(graph.Blocks.Count);
+        var visited = new HashSet<Block>();
+        var postOrderIndex = new Dictionary<Block, int>(graph.Blocks.Count);
+
+        void Dfs(Block current)
         {
-            var dominators = new HashSet<Block>();
-
-#if NET5_0_OR_GREATER
-            dominators.EnsureCapacity(graph.Blocks.Count);
-#endif
-
-            if (block == graph.EntryBlock)
+            visited.Add(current);
+            foreach (var succ in current.Successors)
             {
-                dominators.Add(block);
+                if (!visited.Contains(succ))
+                    Dfs(succ);
             }
-            else
-            {
-                foreach (var graphBlock in graph.Blocks)
-                    dominators.Add(graphBlock);
-            }
-
-            Dominators[block] = dominators;
+            postOrderIndex[current] = postOrder.Count;
+            postOrder.Add(current);
         }
 
-        var remaining = new Stack<Block>(graph.Blocks);
-        var tempDoms = new HashSet<Block>();
+        Dfs(entry);
 
-#if NET5_0_OR_GREATER
-        tempDoms.EnsureCapacity(graph.Blocks.Count);
-#endif
+        // Blocks not reachable from entry get null idom
+        foreach (var block in graph.Blocks)
+            ImmediateDominators[block] = null;
 
-        // Get dominators
-        while (remaining.Count > 0)
+        ImmediateDominators[entry] = entry;
+
+        // 2. Iterative Cooper-Harvey-Kennedy algorithm
+        var rpo = new List<Block>(postOrder);
+        rpo.Reverse(); // Reverse Post-Order: entry is first
+
+        Block Intersect(Block b1, Block b2)
         {
-            var block = remaining.Pop();
-
-            if (block == graph.EntryBlock)
-                continue;
-
-            tempDoms.Clear();
-
-            if (block.Predecessors.Count != 0)
+            var finger1 = b1;
+            var finger2 = b2;
+            while (finger1 != finger2)
             {
-                foreach (var predecessor in Dominators[block.Predecessors[0]])
-                    tempDoms.Add(predecessor);
-
-                for (var i = 1; i < block.Predecessors.Count; i++)
-                    tempDoms.IntersectWith(Dominators[block.Predecessors[i]]);
-            }
-
-            tempDoms.Add(block);
-
-            // Given that all dominators can be at most the intersection of their predecessor dominators,
-            // there is no case in which an entirely new dominator gets added to a dominator set.
-            // this means that we do not have to compare all dominators by value; rather,
-            // we can just compare if the amount of dominators is the same, as the only way for that
-            // to be possible is for the same dominators to be in both sets.
-
-            if (tempDoms.Count != Dominators[block].Count)
-            {
-                (Dominators[block], tempDoms) = (tempDoms, Dominators[block]);
-
-                foreach (var successor in block.Successors)
+                while (postOrderIndex.TryGetValue(finger1, out var idx1) &&
+                       postOrderIndex.TryGetValue(finger2, out var idx2) &&
+                       idx1 < idx2)
                 {
-                    remaining.Push(successor);
+                    finger1 = ImmediateDominators[finger1]!;
+                }
+                while (postOrderIndex.TryGetValue(finger1, out var idx1) &&
+                       postOrderIndex.TryGetValue(finger2, out var idx2) &&
+                       idx2 < idx1)
+                {
+                    finger2 = ImmediateDominators[finger2]!;
+                }
+            }
+            return finger1;
+        }
+
+        var changed = true;
+        while (changed)
+        {
+            changed = false;
+            foreach (var b in rpo)
+            {
+                if (b == entry)
+                    continue;
+
+                // Find first processed predecessor
+                Block? newIdom = null;
+                foreach (var p in b.Predecessors)
+                {
+                    if (ImmediateDominators.TryGetValue(p, out var pIdom) && pIdom != null)
+                    {
+                        newIdom = p;
+                        break;
+                    }
+                }
+
+                if (newIdom == null)
+                    continue;
+
+                foreach (var p in b.Predecessors)
+                {
+                    if (p != newIdom && ImmediateDominators.TryGetValue(p, out var pIdom) && pIdom != null)
+                    {
+                        newIdom = Intersect(p, newIdom);
+                    }
+                }
+
+                if (ImmediateDominators[b] != newIdom)
+                {
+                    ImmediateDominators[b] = newIdom;
+                    changed = true;
                 }
             }
         }
-    }
 
-    private void CalculatePostDominators(ISILControlFlowGraph graph)
-    {
-        PostDominators.Clear();
-
-        foreach (var block in graph.Blocks)
-        {
-            if (block == graph.ExitBlock)
-                PostDominators[block] = [block];
-            else
-                PostDominators[block] = new HashSet<Block>(graph.Blocks);
-        }
-
-        var remaining = new Stack<Block>(((IEnumerable<Block>)graph.Blocks).Reverse());
-
-        while (remaining.Count > 0)
-        {
-            var block = remaining.Pop();
-
-            if (block.Successors.Count == 0 && block != graph.ExitBlock)
-                continue;
-
-            var tempPostDoms = block.Successors.Count == 0
-                ? new HashSet<Block>()
-                : new HashSet<Block>(PostDominators[block.Successors[0]]);
-
-            for (var i = 1; i < block.Successors.Count; i++)
-                tempPostDoms.IntersectWith(PostDominators[block.Successors[i]]);
-
-            tempPostDoms.Add(block);
-
-            if (!tempPostDoms.SetEquals(PostDominators[block]))
-            {
-                PostDominators[block] = tempPostDoms;
-                foreach (var predecessor in block.Predecessors)
-                    remaining.Push(predecessor);
-            }
-        }
+        // For entry block, convention is null (no strict dominator)
+        ImmediateDominators[entry] = null;
     }
 
     private void CalculateDominanceFrontiers(ISILControlFlowGraph graph)
@@ -177,54 +200,12 @@ public class DominatorInfo
             {
                 var runner = predecessor;
 
-                while (runner != ImmediateDominators[block] && runner != null)
+                while (runner != null && runner != ImmediateDominators[block])
                 {
                     DominanceFrontier[runner].Add(block);
-                    runner = ImmediateDominators[runner];
+                    runner = ImmediateDominators.TryGetValue(runner, out var rIdom) ? rIdom : null;
                 }
             }
         }
-    }
-
-    private void CalculateImmediatePostDominators(ISILControlFlowGraph graph)
-    {
-        foreach (var block in graph.Blocks)
-            ImmediatePostDominators[block] = ClosestStrictDominator(block, PostDominators);
-    }
-
-    private void CalculateImmediateDominators(ISILControlFlowGraph graph)
-    {
-        foreach (var block in graph.Blocks)
-            ImmediateDominators[block] = ClosestStrictDominator(block, Dominators);
-    }
-
-    /// <summary>
-    /// Returns the (post-)dominator of <paramref name="block"/> closest to it, i.e. its immediate
-    /// (post-)dominator. The strict (post-)dominators of a block form a chain under the domination
-    /// relation, so the closest one is simply the one with the largest (post-)dominator set.
-    /// Returns null for the root (entry/exit) or any block with no strict (post-)dominators.
-    /// </summary>
-    private static Block? ClosestStrictDominator(Block block, Dictionary<Block, HashSet<Block>> dominators)
-    {
-        if (!dominators.TryGetValue(block, out var doms))
-            return null;
-
-        Block? closest = null;
-        var closestCount = -1;
-
-        foreach (var candidate in doms)
-        {
-            if (candidate == block)
-                continue;
-
-            var count = dominators[candidate].Count;
-            if (count > closestCount)
-            {
-                closestCount = count;
-                closest = candidate;
-            }
-        }
-
-        return closest;
     }
 }

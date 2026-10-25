@@ -85,4 +85,56 @@ public class IlGeneratorTests
         Assert.That(il.Count(i => i.OpCode == CilOpCodes.Ldloc), Is.EqualTo(2),
             "expected exactly two Ldloc instructions for the two parameters of the target method");
     }
+
+    [Test]
+    public void StoreValueTypeIntoObject_EmitsBox()
+    {
+        var appContext = Cpp2IlApi.CurrentAppContext!;
+        var systemObject = appContext.SystemTypes.SystemObjectType;
+        var systemVoid = appContext.SystemTypes.SystemVoidType;
+        var systemBool = appContext.SystemTypes.SystemBooleanType;
+
+        var callerContext = new InjectedMethodAnalysisContext(
+            systemObject,
+            "CallerBox",
+            systemVoid,
+            ReflectionMethodAttributes.Public | ReflectionMethodAttributes.Static,
+            []);
+
+        var x = new LocalVariable("x", new Register(null, "x")) { Type = systemBool };
+        var objLocal = new LocalVariable("obj", new Register(null, "obj")) { Type = systemObject };
+
+        var instructions = new List<Instruction>
+        {
+            new(0, OpCode.Move, x, Imm(1)),
+            new(1, OpCode.Move, objLocal, x),
+            new(2, OpCode.Return),
+        };
+
+        callerContext.ControlFlowGraph = new ISILControlFlowGraph(instructions);
+        callerContext.Locals = [x, objLocal];
+        callerContext.ParameterLocals = [];
+        callerContext.AnalysisWarnings = [];
+
+        var module = new ModuleDefinition("TestBox.dll", new AssemblyReference("mscorlib", new Version(4, 0, 0, 0)));
+        var typeDef = new TypeDefinition("Cpp2IL.Core.Tests", "IlGeneratorBoxTestType", TypeAttributes.Class | TypeAttributes.Public);
+        module.TopLevelTypes.Add(typeDef);
+
+        var objTypeDef = new TypeDefinition("System", "Object", TypeAttributes.Public, null);
+        module.TopLevelTypes.Add(objTypeDef);
+        systemObject.PutExtraData("AsmResolverType", objTypeDef);
+
+        var boolTypeDef = new TypeDefinition("System", "Boolean", TypeAttributes.Public | TypeAttributes.SequentialLayout, module.CorLibTypeFactory.CorLibScope.CreateTypeReference("System", "ValueType"));
+        module.TopLevelTypes.Add(boolTypeDef);
+        systemBool.PutExtraData("AsmResolverType", boolTypeDef);
+
+        var callerMethodDef = new MethodDefinition("CallerBox", MethodAttributes.Public | MethodAttributes.Static,
+            MethodSignature.CreateStatic(module.CorLibTypeFactory.Void));
+        typeDef.Methods.Add(callerMethodDef);
+
+        IlGenerator.GenerateIl(callerContext, callerMethodDef);
+
+        var il = callerMethodDef.CilMethodBody!.Instructions;
+        Assert.That(il.Any(i => i.OpCode == CilOpCodes.Box), Is.True, "expected generated IL to contain a Box instruction when assigning bool to object");
+    }
 }

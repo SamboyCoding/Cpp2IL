@@ -54,14 +54,21 @@ public static class InjectedCheckRemover
     private static bool IsInjectedCheck(Instruction definition, string thrownType) =>
         thrownType switch
         {
-            "System.NullReferenceException" => definition is { OpCode: OpCode.CheckEqual } && definition.Operands[2] is Immediate { Value: 0 },
+            "System.NullReferenceException" => (definition.OpCode is OpCode.CheckEqual or OpCode.CheckNotEqual) &&
+                                               ((definition.Operands.Count > 1 && IsZeroConstant(definition.Operands[1])) ||
+                                                (definition.Operands.Count > 2 && IsZeroConstant(definition.Operands[2]))),
             "System.IndexOutOfRangeException" => definition.OpCode is >= OpCode.CheckEqual and <= OpCode.CheckLessOrEqual,
             _ => false
         };
 
+    private static bool IsZeroConstant(IOperand operand) => operand is Immediate { Value: 0 };
+
     // The full name of the exception if this block does nothing but throw an injected check's exception, else null.
-    private static string? GetInjectedThrowType(Block block)
+    private static string? GetInjectedThrowType(Block block, int depth = 0)
     {
+        if (depth > 2)
+            return null;
+
         string? thrown = null;
 
         foreach (var instruction in block.Instructions)
@@ -72,9 +79,25 @@ public static class InjectedCheckRemover
                 case OpCode.Return when thrown != null:
                     continue;
 
+                case OpCode.Jump when thrown != null:
+                    continue;
+
+                case OpCode.Jump when instruction.Operands.Count > 0 && instruction.Operands[0] is Block targetBlock:
+                    return GetInjectedThrowType(targetBlock, depth + 1);
+
+                case OpCode.Newobj when instruction.Operands.Count > 1
+                    && instruction.Operands[1] is TypeAnalysisContext { FullName: "System.NullReferenceException" or "System.IndexOutOfRangeException" } newobjEx:
+                    thrown = newobjEx.FullName;
+                    continue;
+
                 case OpCode.Throw when thrown == null
                     && instruction.Operands is [TypeAnalysisContext { FullName: "System.NullReferenceException" or "System.IndexOutOfRangeException" } exception]:
                     thrown = exception.FullName;
+                    continue;
+
+                case OpCode.Throw when instruction.Operands is [LocalVariable local]
+                    && (local.Type?.FullName is "System.NullReferenceException" or "System.IndexOutOfRangeException" || thrown != null):
+                    thrown ??= local.Type?.FullName;
                     continue;
 
                 default:

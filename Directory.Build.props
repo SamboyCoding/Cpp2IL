@@ -1,0 +1,5 @@
+<Project>
+    <PropertyGroup>
+        <VersionSuffix Condition="'$(VersionSuffix)' == '' and '$(GITHUB_ACTIONS)' != 'true'">local</VersionSuffix>
+    </PropertyGroup>
+</Project>

@@ -325,23 +325,31 @@ public static class CopyCoalescer
             if (!_parent.TryGetValue(local, out var parent))
                 return local;
 
-            while (!ReferenceEquals(parent, _parent[parent]))
-                parent = _parent[parent];
+            while (_parent.TryGetValue(parent, out var nextParent) && !ReferenceEquals(parent, nextParent))
+                parent = nextParent;
 
             _parent[local] = parent;
             return parent;
         }
 
-        public IEnumerable<LocalVariable> Members(LocalVariable representative) => _members[representative];
+        public IEnumerable<LocalVariable> Members(LocalVariable representative) =>
+            _members.TryGetValue(representative, out var members) ? members : [representative];
 
         public void Union(LocalVariable a, LocalVariable b)
         {
+            if (ReferenceEquals(a, b)) return;
+
             // keep whichever already carries a type
             var (keep, drop) = a.Type != null || b.Type == null ? (a, b) : (b, a);
 
             _parent[drop] = keep;
-            _members[keep].AddRange(_members[drop]);
-            _members.Remove(drop);
+            if (_members.TryGetValue(drop, out var dropMembers))
+            {
+                if (!_members.TryGetValue(keep, out var keepMembers))
+                    _members[keep] = keepMembers = [keep];
+                keepMembers.AddRange(dropMembers);
+                _members.Remove(drop);
+            }
 
             keep.Type ??= drop.Type;
             keep.IsThis |= drop.IsThis;

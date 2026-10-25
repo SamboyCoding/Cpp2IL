@@ -70,7 +70,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
 
     public List<string> AnalysisWarnings = [];
 
-    public static int MaxMethodSizeBytes = 30000; // 30KB
+    public static int MaxMethodSizeBytes = -1; 
 
     public List<ParameterAnalysisContext> Parameters = [];
 
@@ -373,6 +373,15 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
 
         StackAnalyzer.Analyze(this);
 
+        var blockCount = ControlFlowGraph.Blocks.Count;
+
+        if (blockCount > 25000)
+        {
+            Logger.WarnNewline($"Method {FullName} has {blockCount} blocks, which exceeds absolute limits (>25,000). Filling with clean stub to avoid crash.");
+            ConvertedIsil = [];
+            return;
+        }
+
         // Dominator info must be computed after stack analysis, which removes unreachable/empty
         // blocks and would otherwise leave the dominator tree out of sync with the graph SSA sees.
         DominatorInfo = new DominatorInfo(ControlFlowGraph);
@@ -444,6 +453,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
 
         // Runs late so the array type and length reach the allocation call as operands after copy propagation has inlined them
         ArrayRecovery.Run(this);
+        DeadCodeEliminator.Run(this);
 
         LocalVariables.TypeAddressedLocals(this);
 
@@ -458,6 +468,12 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
         DeadCodeEliminator.Run(this);
 
         LocalVariables.RemoveUnused(this);
+
+        if (blockCount > 1000)
+        {
+            // Low-memory cleanup immediately after finishing a heavy method
+            GC.Collect(2, GCCollectionMode.Forced, false);
+        }
     }
 
     public void AddWarning(string warning) => AnalysisWarnings.Add(warning);

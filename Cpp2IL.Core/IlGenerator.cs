@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -5,9 +6,11 @@ using AsmResolver.DotNet;
 using AsmResolver.DotNet.Code.Cil;
 using AsmResolver.DotNet.Signatures;
 using AsmResolver.PE.DotNet.Cil;
+using Cpp2IL.Core.Analysis;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Utils;
 using Cpp2IL.Core.Utils.AsmResolver;
 
 namespace Cpp2IL.Core;
@@ -66,38 +69,61 @@ public static class IlGenerator
 
         definition.CilMethodBody = body;
 
-        // Make sure context.Locals actually has all locals (idk why it doesn't sometimes)
-        foreach (var operand in context.ControlFlowGraph.Instructions.SelectMany(i => i.Operands))
+        // Make sure context.Locals actually has all locals across all blocks and operands
+        var allLocals = new HashSet<LocalVariable>(context.Locals);
+        foreach (var block in context.ControlFlowGraph.Blocks)
         {
-            LocalVariable? local = null;
-
-            if (operand is FieldReference field)
-                local = field.Local;
-
-            if (operand is LocalVariable local2)
-                local = local2;
-
-            if (operand is MemoryOperand memory && memory.Base is LocalVariable local3)
-                local = local3;
-
-            var elementOperand = operand is AddressOf { Target: ArrayAccess elementAddress } ? elementAddress : operand;
-
-            if (elementOperand is ArrayAccess arrayAccess)
+            foreach (var instruction in block.Instructions)
             {
-                local = arrayAccess.Array;
-
-                if (arrayAccess.Index is LocalVariable index && !context.Locals.Contains(index))
-                    context.Locals.Add(index);
+                foreach (var operand in instruction.Operands)
+                {
+                    CollectLocals(operand, allLocals);
+                }
             }
+        }
+        context.Locals = allLocals.ToList();
 
-            if (operand is ArrayLength arrayLength)
-                local = arrayLength.Array;
+        // Infer any remaining untyped locals from instructions that assign to them
+        foreach (var local in context.Locals)
+        {
+            if (local.Type != null) continue;
 
-            if (operand is AddressOf { Target: LocalVariable addressed })
-                local = addressed;
-
-            if (local != null && !context.Locals.Contains(local))
-                context.Locals.Add(local);
+            foreach (var inst in context.ControlFlowGraph!.Instructions)
+            {
+                if (inst.Operands.Count > 0 && ReferenceEquals(inst.Operands[0], local))
+                {
+                    if (inst.OpCode is >= OpCode.CheckEqual and <= OpCode.CheckLessOrEqual)
+                    {
+                        local.Type = context.AppContext.SystemTypes.SystemBooleanType;
+                        break;
+                    }
+                    if (inst.OpCode is OpCode.And or OpCode.Or or OpCode.Xor or OpCode.ShiftLeft or OpCode.ShiftRight or OpCode.Modulo)
+                    {
+                        local.Type = context.AppContext.SystemTypes.SystemInt32Type;
+                        break;
+                    }
+                    if (inst.OpCode is OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide)
+                    {
+                        local.Type = context.AppContext.SystemTypes.SystemInt32Type;
+                        break;
+                    }
+                    if (inst.OpCode == OpCode.Call && inst.Operands[0] is MethodAnalysisContext callee && !callee.IsVoid)
+                    {
+                        local.Type = callee.ReturnType;
+                        break;
+                    }
+                    if (inst.OpCode == OpCode.Newobj && inst.Operands.Count > 1 && inst.Operands[1] is TypeAnalysisContext allocType)
+                    {
+                        local.Type = allocType;
+                        break;
+                    }
+                    if (inst.OpCode == OpCode.NewArr && inst.Operands.Count > 1 && inst.Operands[1] is SzArrayTypeAnalysisContext arrType)
+                    {
+                        local.Type = arrType;
+                        break;
+                    }
+                }
+            }
         }
 
         // Map ISIL locals to IL
@@ -130,11 +156,19 @@ public static class IlGenerator
         Dictionary<Block, CilInstruction> blockEntryMap = [];
         List<(CilInstruction BranchInstruction, Block TargetBlock)> pendingBlockBranchFixups = [];
 
-        foreach (var block in context.ControlFlowGraph!.Blocks)
-        {
-            if (block == context.ControlFlowGraph.EntryBlock || block == context.ControlFlowGraph.ExitBlock)
-                continue;
+        var entrySuccessor = context.ControlFlowGraph!.EntryBlock.Successors.FirstOrDefault(s => s != context.ControlFlowGraph.ExitBlock);
+        var orderedBlocks = new List<Block>();
+        if (entrySuccessor != null && context.ControlFlowGraph.Blocks.Contains(entrySuccessor))
+            orderedBlocks.Add(entrySuccessor);
 
+        foreach (var b in context.ControlFlowGraph.Blocks)
+        {
+            if (b != context.ControlFlowGraph.EntryBlock && b != context.ControlFlowGraph.ExitBlock && !orderedBlocks.Contains(b))
+                orderedBlocks.Add(b);
+        }
+
+        foreach (var block in orderedBlocks)
+        {
             if (block.Instructions.Count == 0)
                 continue;
 
@@ -214,13 +248,44 @@ public static class IlGenerator
             branchInstruction.Operand = new CilInstructionLabel(target);
         }
 
-        // Add analysis warnings
         var instructions = body.Instructions;
+        
+        // Peephole pass: eliminate redundant branch-to-next-instruction
+        for (var i = 0; i < instructions.Count - 1; i++)
+        {
+            var cur = instructions[i];
+            if (cur.OpCode.Code is CilCode.Br or CilCode.Br_S)
+            {
+                var next = instructions[i + 1];
+                if (cur.Operand is CilInstructionLabel lbl && lbl.Instruction == next)
+                {
+                    cur.OpCode = CilOpCodes.Nop;
+                    cur.Operand = null;
+                }
+            }
+        }
+
+        // Add analysis warnings
         foreach (var warning in context.AnalysisWarnings)
         {
             instructions.Add(CilOpCodes.Ldstr, Diagnostic("Warning: " + warning));
             instructions.Add(CilOpCodes.Call, writeLine);
         }
+
+        // Ensure method body always ends with a valid terminator instruction
+        if (instructions.Count == 0 || !IsTerminator(instructions[^1]))
+        {
+            if (!context.IsVoid)
+                PushDefaultOf(context.ReturnType, definition, instructions);
+            instructions.Add(CilOpCodes.Ret);
+        }
+    }
+
+    private static bool IsTerminator(CilInstruction instruction)
+    {
+        var code = instruction.OpCode.Code;
+        return code is CilCode.Ret or CilCode.Throw or CilCode.Rethrow
+            or CilCode.Br or CilCode.Br_S or CilCode.Leave or CilCode.Leave_S;
     }
 
     // Limit so we don't run into the 16mb limit (see AsmResolver issue #775)
@@ -309,8 +374,22 @@ public static class IlGenerator
                     break;
                 }
 
-                LoadOperand(instruction.Operands[1], method, locals, writeLine, DestinationType(instruction.Operands[0]));
-                StoreToOperand(instruction.Operands[0], method, locals, writeLine);
+                if (instruction.Operands[0] is MemoryOperand memTarget && memTarget.Base is LocalVariable { Type: SzArrayTypeAnalysisContext memArrType } memArrLocal && memTarget.Addend >= 0x20)
+                {
+                    var elemType = memArrType.ElementType;
+                    var elemSize = elemType.IsValueType ? Math.Max(1, (int)TypeSizes.UnboxedSize(elemType, context.AppContext.Binary.PointerSizeBytes)) : context.AppContext.Binary.PointerSizeBytes;
+                    var elemIdx = (int)((memTarget.Addend - 0x20) / elemSize);
+                    LoadLocal(memArrLocal, method, locals);
+                    instructions.Add(CilOpCodes.Ldc_I4, elemIdx);
+                    LoadOperand(instruction.Operands[1], method, locals, writeLine, elemType);
+                    instructions.Add(CilOpCodes.Stelem, elemType.ToTypeSignature().ToTypeDefOrRef());
+                    break;
+                }
+
+                var destType = DestinationType(instruction.Operands[0], context.AppContext);
+                LoadOperand(instruction.Operands[1], method, locals, writeLine, destType);
+                var srcType = (instruction.Operands[1] as LocalVariable)?.Type ?? (instruction.Operands[1] as FieldReference)?.Field.FieldType;
+                StoreToOperand(instruction.Operands[0], method, locals, writeLine, srcType);
                 break;
 
             case OpCode.NewArr:
@@ -383,19 +462,115 @@ public static class IlGenerator
             case OpCode.Phi:
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Phi opcodes should not exist at this point in decompilation ({instruction})"));
                 instructions.Add(CilOpCodes.Call, writeLine);
+                if (instruction.Operands.Count > 0 && instruction.Operands[0] is LocalVariable phiDest)
+                {
+                    if (instruction.Operands.Count > 1)
+                        LoadOperand(instruction.Operands[1], method, locals, writeLine);
+                    else
+                        PushDefaultOf(phiDest.Type ?? context.AppContext.SystemTypes.SystemObjectType, method, instructions);
+                    StoreToOperand(phiDest, method, locals, writeLine);
+                }
                 break;
 
             case OpCode.Call:
             case OpCode.CallVoid:
-                if (instruction.Operands[0] is not MethodAnalysisContext targetMethod)
+                MethodAnalysisContext? targetMethod = instruction.Operands[0] as MethodAnalysisContext;
+                if (targetMethod == null)
                 {
                     if (instruction.Operands[0] is Immediate targetAddress)
-                        instructions.Add(CilOpCodes.Ldstr, $"Method not found @{targetAddress.UnsignedValue:X}");
-                    else // Probably key function. Just the target, the full operand dump is huge and blows the 16MB #US heap limit
-                        instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Unknown call target operand: {instruction.Operands[0]}"));
+                    {
+                        var resolvedTarget = MetadataResolver.FollowBranchTrampolines(context.AppContext, targetAddress.UnsignedValue);
+                        if (context.AppContext.MethodsByAddress.TryGetValue(resolvedTarget, out var methods) && methods.Count > 0)
+                        {
+                            targetMethod = methods[0];
+                        }
+                        else if (context.AppContext.Binary.ConcreteGenericImplementationsByAddress.TryGetValue(resolvedTarget, out var genericRefs) && genericRefs.Count > 0)
+                        {
+                            targetMethod = context.AppContext.ResolveContextForMethod(genericRefs[0].BaseMethod);
+                        }
+                    }
+                }
 
-                    instructions.Add(CilOpCodes.Call, writeLine);
-                    break;
+                if (targetMethod == null)
+                {
+                    if (instruction.Operands[0] is Immediate targetAddress)
+                    {
+                        instructions.Add(CilOpCodes.Ldstr, $"Method not found @{targetAddress.UnsignedValue:X}");
+                        instructions.Add(CilOpCodes.Call, writeLine);
+                        if (instruction.OpCode == OpCode.Call && instruction.Operands.Count > 1 && instruction.Operands[1] is LocalVariable retLocal)
+                        {
+                            PushDefaultOf(retLocal.Type ?? context.AppContext.SystemTypes.SystemObjectType, method, instructions);
+                            StoreToOperand(retLocal, method, locals, writeLine);
+                        }
+                        break;
+                    }
+                    else if (instruction.Operands[0] is StringLiteral { Value: var kfName })
+                    {
+                        if (kfName is "SzArrayNew" or "il2cpp_vm_array_new_specific" or "il2cpp_array_new_specific")
+                        {
+                            if (instruction.Operands.Count > 1 && instruction.Operands[1] is LocalVariable arrResult)
+                            {
+                                if (arrResult.Type is SzArrayTypeAnalysisContext szArr)
+                                {
+                                    if (instruction.Operands.Count > 3)
+                                        LoadOperand(instruction.Operands[3], method, locals, writeLine);
+                                    else
+                                        instructions.Add(CilOpCodes.Ldc_I4_0);
+                                    instructions.Add(CilOpCodes.Newarr, szArr.ElementType.ToTypeSignature().ToTypeDefOrRef());
+                                }
+                                else
+                                {
+                                    PushDefaultOf(arrResult.Type ?? context.AppContext.SystemTypes.SystemObjectType, method, instructions);
+                                }
+                                StoreToOperand(arrResult, method, locals, writeLine);
+                            }
+                            break;
+                        }
+
+                        if (kfName == "il2cpp_vm_object_box")
+                        {
+                            if (instruction.Operands.Count > 1 && instruction.Operands[1] is LocalVariable boxResult)
+                            {
+                                if (instruction.Operands.Count > 3 && instruction.Operands[2] is TypeAnalysisContext targetBoxedType)
+                                {
+                                    LoadOperand(instruction.Operands[3], method, locals, writeLine, targetBoxedType);
+                                    instructions.Add(CilOpCodes.Box, targetBoxedType.ToTypeSignature().ToTypeDefOrRef());
+                                }
+                                else
+                                {
+                                    PushDefaultOf(boxResult.Type ?? context.AppContext.SystemTypes.SystemObjectType, method, instructions);
+                                }
+                                StoreToOperand(boxResult, method, locals, writeLine);
+                            }
+                            break;
+                        }
+
+                        // For other key functions or class_init, cleanly initialize return value if any
+                        if (instruction.OpCode == OpCode.Call && instruction.Operands.Count > 1 && instruction.Operands[1] is LocalVariable retLocal)
+                        {
+                            if (context.ControlFlowGraph!.Instructions.Any(i => i != instruction && i.Operands.Contains(retLocal)))
+                            {
+                                PushDefaultOf(retLocal.Type ?? context.AppContext.SystemTypes.SystemObjectType, method, instructions);
+                                StoreToOperand(retLocal, method, locals, writeLine);
+                            }
+                        }
+                        break;
+                    }
+                    else
+                    {
+                        instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Unknown call target operand: {instruction.Operands[0]}"));
+                        instructions.Add(CilOpCodes.Call, writeLine);
+                        // Any remaining unknown target operand: safely provide default return value
+                        if (instruction.OpCode == OpCode.Call && instruction.Operands.Count > 1 && instruction.Operands[1] is LocalVariable retLocal)
+                        {
+                            if (context.ControlFlowGraph!.Instructions.Any(i => i != instruction && i.Operands.Contains(retLocal)))
+                            {
+                                PushDefaultOf(retLocal.Type ?? context.AppContext.SystemTypes.SystemObjectType, method, instructions);
+                                StoreToOperand(retLocal, method, locals, writeLine);
+                            }
+                        }
+                        break;
+                    }
                 }
 
                 var importedMethod = targetMethod.ToMethodDescriptor();
@@ -427,7 +602,7 @@ public static class IlGenerator
                     if (i < availableArgs)
                         LoadOperand(instruction.Operands[callParamIndex + i], method, locals, writeLine, parameterType);
                     else
-                        PushDefaultOf(parameterType, instructions);
+                        PushDefaultOf(parameterType, method, instructions);
                 }
 
                 instructions.Add(CilOpCodes.Call, importedMethod);
@@ -437,7 +612,7 @@ public static class IlGenerator
                 if (!targetMethod.IsVoid)
                 {
                     if (instruction.OpCode == OpCode.Call)
-                        StoreToOperand(instruction.Operands[1], method, locals, writeLine);
+                        StoreToOperand(instruction.Operands[1], method, locals, writeLine, targetMethod.ReturnType);
                     else
                         instructions.Add(CilOpCodes.Pop);
                 }
@@ -447,6 +622,11 @@ public static class IlGenerator
             case OpCode.IndirectCall:
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Indirect call: {instruction.Operands[0]} (should have been resolved before IL gen)"));
                 instructions.Add(CilOpCodes.Call, writeLine);
+                if (instruction.Operands.Count > 1 && instruction.Operands[1] is LocalVariable indirectRet)
+                {
+                    PushDefaultOf(indirectRet.Type ?? context.AppContext.SystemTypes.SystemObjectType, method, instructions);
+                    StoreToOperand(indirectRet, method, locals, writeLine);
+                }
                 break;
 
             case OpCode.Return:
@@ -455,7 +635,7 @@ public static class IlGenerator
                     if (instruction.Operands.Count == 1)
                         LoadOperand(instruction.Operands[0], method, locals, writeLine, context.ReturnType);
                     else
-                        instructions.Add(CilOpCodes.Ldnull); // ret still pops a value even if we lost track of it
+                        PushDefaultOf(context.ReturnType, method, instructions);
                 }
                 instructions.Add(CilOpCodes.Ret);
                 break;
@@ -472,6 +652,9 @@ public static class IlGenerator
             case OpCode.IndirectJump:
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Indirect jump: {instruction.Operands[0]} (should have been resolved before IL gen)"));
                 instructions.Add(CilOpCodes.Call, writeLine);
+                if (!context.IsVoid)
+                    PushDefaultOf(context.ReturnType, method, instructions);
+                instructions.Add(CilOpCodes.Ret);
                 break;
 
             case OpCode.ShiftStack:
@@ -506,11 +689,27 @@ public static class IlGenerator
                 // Float arithmetic on a promoted integer operand needs an explicit conversion, so both
                 // operands are coerced to the (float) result type. A no-op when they already match.
                 var floatConversion = FloatArithmeticConversion(instruction);
+                var isNumericOp = instruction.OpCode is OpCode.Add or OpCode.Subtract or OpCode.Multiply
+                    or OpCode.Divide or OpCode.Modulo or OpCode.ShiftLeft or OpCode.ShiftRight
+                    or OpCode.And or OpCode.Or or OpCode.Xor;
 
-                LoadOperand(instruction.Operands[1], method, locals, writeLine);
+                var isComparison = instruction.OpCode is >= OpCode.CheckEqual and <= OpCode.CheckLessOrEqual;
+                var operandType = DestinationType(instruction.Operands[0], context.AppContext);
+                if (isNumericOp && (operandType == null || !operandType.IsValueType))
+                    operandType = context.AppContext.SystemTypes.SystemInt32Type;
+
+                if (isComparison)
+                {
+                    operandType = (instruction.Operands[1] as LocalVariable)?.Type
+                        ?? (instruction.Operands[1] as FieldReference)?.Field.FieldType
+                        ?? (instruction.Operands[2] as LocalVariable)?.Type
+                        ?? (instruction.Operands[2] as FieldReference)?.Field.FieldType;
+                }
+
+                LoadOperand(instruction.Operands[1], method, locals, writeLine, operandType);
                 if (floatConversion is { } conv1)
                     instructions.Add(conv1);
-                LoadOperand(instruction.Operands[2], method, locals, writeLine);
+                LoadOperand(instruction.Operands[2], method, locals, writeLine, operandType);
                 if (floatConversion is { } conv2)
                     instructions.Add(conv2);
 
@@ -553,16 +752,20 @@ public static class IlGenerator
                     case OpCode.Xor: instructions.Add(CilOpCodes.Xor); break;
                 }
 
-                StoreToOperand(instruction.Operands[0], method, locals, writeLine);
+                var resType = isComparison ? context.AppContext.SystemTypes.SystemBooleanType : operandType;
+                StoreToOperand(instruction.Operands[0], method, locals, writeLine, resType);
                 break;
 
             case OpCode.Not:
             case OpCode.Negate:
-                LoadOperand(instruction.Operands[1], method, locals, writeLine);
+                var isBool = IsBoolean(instruction.Operands[1], context)
+                    || (instruction.Operands[0] is LocalVariable destLoc && destLoc.Type == context.AppContext.SystemTypes.SystemBooleanType);
+
+                LoadOperand(instruction.Operands[1], method, locals, writeLine, isBool ? context.AppContext.SystemTypes.SystemBooleanType : null);
 
                 if (instruction.OpCode == OpCode.Negate)
                     instructions.Add(CilOpCodes.Neg);
-                else if (IsBoolean(instruction.Operands[1], context))
+                else if (isBool)
                 {
                     instructions.Add(CilOpCodes.Ldc_I4_0);
                     instructions.Add(CilOpCodes.Ceq);
@@ -570,7 +773,8 @@ public static class IlGenerator
                 else
                     instructions.Add(CilOpCodes.Not);
 
-                StoreToOperand(instruction.Operands[0], method, locals, writeLine);
+                var notType = isBool ? context.AppContext.SystemTypes.SystemBooleanType : DestinationType(instruction.Operands[0], context.AppContext);
+                StoreToOperand(instruction.Operands[0], method, locals, writeLine, notType);
                 break;
 
             default:
@@ -644,10 +848,33 @@ public static class IlGenerator
         switch (operand)
         {
             case Immediate { Value: >= int.MinValue and <= int.MaxValue } immediate:
-                instructions.Add(CilOpCodes.Ldc_I4, (int)immediate.Value);
+                if (expectedType?.FullName == "System.Single")
+                    instructions.Add(CilOpCodes.Ldc_R4, (float)immediate.Value);
+                else if (expectedType?.FullName == "System.Double")
+                    instructions.Add(CilOpCodes.Ldc_R8, (double)immediate.Value);
+                else if (expectedType?.FullName is "System.Int64" or "System.UInt64")
+                    instructions.Add(CilOpCodes.Ldc_I8, immediate.Value);
+                else
+                {
+                    instructions.Add(CilOpCodes.Ldc_I4, (int)immediate.Value);
+                    if (expectedType?.FullName is "System.IntPtr" or "System.UIntPtr")
+                        instructions.Add(CilOpCodes.Conv_I);
+                }
                 break;
             case Immediate immediate:
-                instructions.Add(CilOpCodes.Ldc_I8, immediate.Value);
+                if (expectedType?.FullName == "System.Double")
+                    instructions.Add(CilOpCodes.Ldc_R8, (double)immediate.Value);
+                else if (expectedType?.FullName is "System.Int32" or "System.UInt32" or "System.Boolean")
+                {
+                    instructions.Add(CilOpCodes.Ldc_I8, immediate.Value);
+                    instructions.Add(CilOpCodes.Conv_I4);
+                }
+                else
+                {
+                    instructions.Add(CilOpCodes.Ldc_I8, immediate.Value);
+                    if (expectedType?.FullName is "System.IntPtr" or "System.UIntPtr")
+                        instructions.Add(CilOpCodes.Conv_I);
+                }
                 break;
             case FloatLiteral f:
                 instructions.Add(CilOpCodes.Ldc_R4, f.Value);
@@ -656,10 +883,34 @@ public static class IlGenerator
                 instructions.Add(CilOpCodes.Ldc_R8, d.Value);
                 break;
             case StringLiteral s:
-                instructions.Add(CilOpCodes.Ldstr, s.Value);
+                if (expectedType != null && expectedType.IsValueType)
+                    PushDefaultOf(expectedType, method, instructions);
+                else
+                    instructions.Add(CilOpCodes.Ldstr, s.Value);
                 break;
             case LocalVariable local:
                 LoadLocal(local, method, locals);
+                if (expectedType != null)
+                {
+                    if (expectedType.FullName == "System.Object" && local.Type is { IsValueType: true } valType)
+                    {
+                        instructions.Add(CilOpCodes.Box, valType.ToTypeSignature().ToTypeDefOrRef());
+                    }
+                    else if (expectedType.IsValueType && local.Type is { IsValueType: false } and not null)
+                    {
+                        instructions.Add(CilOpCodes.Unbox_Any, expectedType.ToTypeSignature().ToTypeDefOrRef());
+                    }
+                    else if (expectedType.FullName is "System.IntPtr" or "System.UIntPtr"
+                             && local.Type?.FullName is "System.Int32" or "System.UInt32")
+                    {
+                        instructions.Add(CilOpCodes.Conv_I);
+                    }
+                    else if (expectedType.FullName is "System.Int32" or "System.UInt32"
+                             && local.Type?.FullName is "System.IntPtr" or "System.UIntPtr" or "System.Int64" or "System.UInt64")
+                    {
+                        instructions.Add(CilOpCodes.Conv_I4);
+                    }
+                }
                 break;
             case ArrayLength arrayLength:
                 LoadLocal(arrayLength.Array, method, locals);
@@ -667,7 +918,7 @@ public static class IlGenerator
                 instructions.Add(CilOpCodes.Conv_I4);
                 break;
             case AddressOf { Target: LocalVariable addressed }:
-                instructions.Add(CilOpCodes.Ldloca, locals[addressed]);
+                instructions.Add(CilOpCodes.Ldloca, GetOrCreateLocal(addressed, method, locals));
                 break;
             case AddressOf { Target: ArrayAccess elementAddress }:
                 LoadLocal(elementAddress.Array, method, locals);
@@ -704,10 +955,91 @@ public static class IlGenerator
                             : new CilInstruction(CilOpCodes.Ldind_Ref));
                     break;
                 }
+
+                // String properties: Length and char indexer
+                if (memory.Base is LocalVariable { Type.FullName: "System.String" } strLocal)
+                {
+                    if (memory.Index == null && memory.Addend == 0x10)
+                    {
+                        var getLength = module.CorLibTypeFactory.CorLibScope
+                            .CreateTypeReference("System", "String")
+                            .CreateMemberReference("get_Length", MethodSignature.CreateInstance(module.CorLibTypeFactory.Int32));
+                        LoadLocal(strLocal, method, locals);
+                        instructions.Add(CilOpCodes.Callvirt, getLength);
+                        break;
+                    }
+                    if (memory.Addend == 0x14 && memory.Index != null)
+                    {
+                        var getChars = module.CorLibTypeFactory.CorLibScope
+                            .CreateTypeReference("System", "String")
+                            .CreateMemberReference("get_Chars", MethodSignature.CreateInstance(module.CorLibTypeFactory.Char, [module.CorLibTypeFactory.Int32]));
+                        LoadLocal(strLocal, method, locals);
+                        LoadOperand(memory.Index, method, locals, writeLine);
+                        instructions.Add(CilOpCodes.Callvirt, getChars);
+                        break;
+                    }
+                }
+
+                // Array: Length and element access
+                if (memory.Base is LocalVariable { Type: SzArrayTypeAnalysisContext arrType } arrLocal)
+                {
+                    if (memory.Index == null && memory.Addend == 0x18)
+                    {
+                        LoadLocal(arrLocal, method, locals);
+                        instructions.Add(CilOpCodes.Ldlen);
+                        instructions.Add(CilOpCodes.Conv_I4);
+                        break;
+                    }
+                    if (memory.Index != null)
+                    {
+                        LoadLocal(arrLocal, method, locals);
+                        LoadOperand(memory.Index, method, locals, writeLine);
+                        instructions.Add(CilOpCodes.Ldelem, arrType.ElementType.ToTypeSignature().ToTypeDefOrRef());
+                        break;
+                    }
+                }
+
+                // Cleanly handle internal runtime metadata structures (RGCTX tables, Il2CppClass tables, static field storage)
+                if (memory.Base is LocalVariable baseLocal && (baseLocal.Type is RgctxTableTypeAnalysisContext or MethodRgctxTableTypeAnalysisContext
+                    or RuntimeClassTypeAnalysisContext or StaticFieldStorageTypeAnalysisContext
+                    || baseLocal.Type?.FullName?.Contains("Il2CppRgctx") == true || baseLocal.Type?.FullName?.Contains("Il2CppClass") == true
+                    || memory.Addend is 0xB8 or 0x130 or 0x135 or 0x138))
+                {
+                    if (expectedType != null)
+                        PushDefaultOf(expectedType, method, instructions);
+                    else
+                    {
+                        instructions.Add(CilOpCodes.Ldc_I4_0);
+                        instructions.Add(CilOpCodes.Conv_I);
+                    }
+                    break;
+                }
+
+                // Cleanly handle absolute uninitialized metadata slots or data globals (memory.Base == null)
+                if (memory.Base == null)
+                {
+                    if (expectedType != null)
+                        PushDefaultOf(expectedType, method, instructions);
+                    else
+                        instructions.Add(CilOpCodes.Ldnull);
+                    break;
+                }
+
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic("Unmanaged memory load: " + operand));
                 instructions.Add(CilOpCodes.Call, writeLine);
-                instructions.Add(CilOpCodes.Ldc_I4_0);
-                instructions.Add(CilOpCodes.Conv_I);
+                if (expectedType != null)
+                {
+                    PushDefaultOf(expectedType, method, instructions);
+                }
+                else if (memory.Base is LocalVariable lv && lv.Type != null && !lv.Type.IsValueType)
+                {
+                    instructions.Add(CilOpCodes.Ldnull);
+                }
+                else
+                {
+                    instructions.Add(CilOpCodes.Ldc_I4_0);
+                    instructions.Add(CilOpCodes.Conv_I);
+                }
                 break;
             case RuntimeMethodInfoAnalysisContext runtimeMethod:
                 // A delegate constructor takes its target as a native pointer, which is exactly ldftn.
@@ -718,8 +1050,13 @@ public static class IlGenerator
                 }
 
                 //Not fully implemented, these basically shouldn't actually ever exist in the final IL.
-                instructions.Add(CilOpCodes.Ldc_I4_0);
-                instructions.Add(CilOpCodes.Conv_I);
+                if (expectedType != null)
+                    PushDefaultOf(expectedType, method, instructions);
+                else
+                {
+                    instructions.Add(CilOpCodes.Ldc_I4_0);
+                    instructions.Add(CilOpCodes.Conv_I);
+                }
                 break;
             case RuntimeFieldInfoAnalysisContext runtimeField:
                 // fieldof(F), e.g. the handle InitializeArray takes.
@@ -729,13 +1066,23 @@ public static class IlGenerator
                     break;
                 }
 
-                instructions.Add(CilOpCodes.Ldc_I4_0);
-                instructions.Add(CilOpCodes.Conv_I);
+                if (expectedType != null)
+                    PushDefaultOf(expectedType, method, instructions);
+                else
+                {
+                    instructions.Add(CilOpCodes.Ldc_I4_0);
+                    instructions.Add(CilOpCodes.Conv_I);
+                }
                 break;
             case RuntimeClassTypeAnalysisContext or RgctxTableTypeAnalysisContext
                 or MethodRgctxTableTypeAnalysisContext or StaticFieldStorageTypeAnalysisContext:
-                instructions.Add(CilOpCodes.Ldc_I4_0);
-                instructions.Add(CilOpCodes.Conv_I);
+                if (expectedType != null)
+                    PushDefaultOf(expectedType, method, instructions);
+                else
+                {
+                    instructions.Add(CilOpCodes.Ldc_I4_0);
+                    instructions.Add(CilOpCodes.Conv_I);
+                }
                 break;
             case TypeAnalysisContext type:
                 //typeof(T)
@@ -752,7 +1099,10 @@ public static class IlGenerator
             default:
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic("Unknown operand: " + operand));
                 instructions.Add(CilOpCodes.Call, writeLine);
-                instructions.Add(CilOpCodes.Ldnull);
+                if (expectedType != null)
+                    PushDefaultOf(expectedType, method, instructions);
+                else
+                    instructions.Add(CilOpCodes.Ldnull);
                 break;
         }
     }
@@ -808,38 +1158,119 @@ public static class IlGenerator
         return false;
     }
 
-    private static void PushDefaultOf(TypeAnalysisContext type, CilInstructionCollection instructions)
+    private static void PushDefaultOf(TypeAnalysisContext? type, MethodDefinition method, CilInstructionCollection instructions)
     {
-        //TODO Remove this, we should be handling arguments correctly in ISIL resolution, this is a hack to emit balanced stacks.
-        //TODO At the *very* least we should emit a console.writeline saying that we did this.
-        if (!type.IsValueType)
+        if (type == null)
         {
             instructions.Add(CilOpCodes.Ldnull);
             return;
         }
 
-        switch (type.FullName)
+        if (type.FullName == "System.Single")
         {
-            case "System.Single": instructions.Add(CilOpCodes.Ldc_R4, 0f); break;
-            case "System.Double": instructions.Add(CilOpCodes.Ldc_R8, 0d); break;
-            case "System.Int64" or "System.UInt64": instructions.Add(CilOpCodes.Ldc_I8, 0L); break;
-            default: instructions.Add(CilOpCodes.Ldc_I4_0); break;
+            instructions.Add(CilOpCodes.Ldc_R4, 0f);
+            return;
         }
+        if (type.FullName == "System.Double")
+        {
+            instructions.Add(CilOpCodes.Ldc_R8, 0d);
+            return;
+        }
+        if (type.FullName is "System.Int64" or "System.UInt64")
+        {
+            instructions.Add(CilOpCodes.Ldc_I8, 0L);
+            return;
+        }
+        if (type.FullName is "System.IntPtr" or "System.UIntPtr")
+        {
+            instructions.Add(CilOpCodes.Ldc_I4_0);
+            instructions.Add(CilOpCodes.Conv_I);
+            return;
+        }
+        if (type.FullName is "System.Boolean" or "System.Byte" or "System.SByte"
+            or "System.Int16" or "System.UInt16" or "System.Int32" or "System.UInt32" or "System.Char")
+        {
+            instructions.Add(CilOpCodes.Ldc_I4_0);
+            return;
+        }
+
+        if (type.IsValueType || type is GenericParameterTypeAnalysisContext)
+        {
+            var typeSig = type.ToTypeSignature();
+            var scratch = new CilLocalVariable(typeSig);
+            method.CilMethodBody!.LocalVariables.Add(scratch);
+
+            instructions.Add(CilOpCodes.Ldloca, scratch);
+            instructions.Add(CilOpCodes.Initobj, typeSig.ToTypeDefOrRef());
+            instructions.Add(CilOpCodes.Ldloc, scratch);
+            return;
+        }
+
+        instructions.Add(CilOpCodes.Ldnull);
     }
 
     private static bool IsBoolean(IOperand operand, MethodAnalysisContext context) =>
-        operand is LocalVariable { Type: { } type } && type == context.AppContext.SystemTypes.SystemBooleanType;
+        (operand is LocalVariable { Type: { } type } && type == context.AppContext.SystemTypes.SystemBooleanType)
+        || (operand is FieldReference field && field.Field.FieldType == context.AppContext.SystemTypes.SystemBooleanType);
 
     private static bool IsZeroConstant(IOperand operand) => operand is Immediate { Value: 0 };
     
-    private static TypeAnalysisContext? DestinationType(IOperand destination) =>
+    private static TypeAnalysisContext? DestinationType(IOperand destination, ApplicationAnalysisContext? appContext = null) =>
         destination switch
         {
-            LocalVariable local => local.Type,
+            LocalVariable local => local.Type ?? appContext?.SystemTypes.SystemObjectType,
             FieldReference field => field.Field.FieldType,
             ArrayAccess { Array.Type: SzArrayTypeAnalysisContext array } => array.ElementType,
             _ => null
         };
+
+    private static void CollectLocals(IOperand? operand, HashSet<LocalVariable> set)
+    {
+        if (operand == null) return;
+        switch (operand)
+        {
+            case LocalVariable lv:
+                set.Add(lv);
+                break;
+            case FieldReference fr:
+                if (fr.Local != null) set.Add(fr.Local);
+                break;
+            case MemoryOperand mo:
+                CollectLocals(mo.Base, set);
+                CollectLocals(mo.Index, set);
+                break;
+            case ArrayAccess aa:
+                if (aa.Array != null) set.Add(aa.Array);
+                CollectLocals(aa.Index, set);
+                break;
+            case ArrayLength al:
+                if (al.Array != null) set.Add(al.Array);
+                break;
+            case AddressOf ao:
+                CollectLocals(ao.Target, set);
+                break;
+            case IEnumerable<IOperand> list:
+                foreach (var op in list) CollectLocals(op, set);
+                break;
+        }
+    }
+
+    private static CilLocalVariable GetOrCreateLocal(LocalVariable local, MethodDefinition method, Dictionary<LocalVariable, CilLocalVariable> locals)
+    {
+        if (locals.TryGetValue(local, out var ilLocal))
+            return ilLocal;
+
+        TypeSignature ilType;
+        if (local.Type != null && local.Type.FullName != "System.Void")
+            ilType = local.Type.ToTypeSignature();
+        else
+            ilType = method.DeclaringModule!.CorLibTypeFactory.Object;
+
+        ilLocal = new CilLocalVariable(ilType);
+        method.CilMethodBody!.LocalVariables.Add(ilLocal);
+        locals[local] = ilLocal;
+        return ilLocal;
+    }
 
     private static void LoadLocal(LocalVariable local, MethodDefinition method, Dictionary<LocalVariable, CilLocalVariable> locals)
     {
@@ -856,18 +1287,25 @@ public static class IlGenerator
         if (parameter != null)
             instructions.Add(CilOpCodes.Ldarg, parameter);
         else
-            instructions.Add(CilOpCodes.Ldloc, locals[local]);
+            instructions.Add(CilOpCodes.Ldloc, GetOrCreateLocal(local, method, locals));
     }
 
     private static void StoreToOperand(IOperand operand, MethodDefinition method,
-        Dictionary<LocalVariable, CilLocalVariable> locals, IMethodDescriptor writeLine)
+        Dictionary<LocalVariable, CilLocalVariable> locals, IMethodDescriptor writeLine,
+        TypeAnalysisContext? valueTypeOnStack = null)
     {
         var instructions = method.CilMethodBody!.Instructions;
 
         switch (operand)
         {
             case LocalVariable local:
-                instructions.Add(CilOpCodes.Stloc, locals[local]);
+                var targetLocal = GetOrCreateLocal(local, method, locals);
+                if (targetLocal.VariableType.FullName == "System.Object"
+                    && valueTypeOnStack is { IsValueType: true } valType)
+                {
+                    instructions.Add(CilOpCodes.Box, valType.ToTypeSignature().ToTypeDefOrRef());
+                }
+                instructions.Add(CilOpCodes.Stloc, targetLocal);
                 break;
 
             case FieldReference field:
@@ -904,11 +1342,25 @@ public static class IlGenerator
                 break;
 
             case MemoryOperand memory:
+                if (memory.Base is LocalVariable memArrLocal && memArrLocal.Type is SzArrayTypeAnalysisContext memArrType && memory.Addend >= 0x20)
+                {
+                    var elemType = memArrType.ElementType;
+                    var elemSize = elemType.IsValueType ? Math.Max(1, (int)TypeSizes.UnboxedSize(elemType, 8)) : 8;
+                    var elemIdx = (int)((memory.Addend - 0x20) / elemSize);
+                    var memScratch = new CilLocalVariable(elemType.ToTypeSignature());
+                    method.CilMethodBody!.LocalVariables.Add(memScratch);
+                    instructions.Add(CilOpCodes.Stloc, memScratch);
+                    LoadLocal(memArrLocal, method, locals);
+                    instructions.Add(CilOpCodes.Ldc_I4, elemIdx);
+                    instructions.Add(CilOpCodes.Ldloc, memScratch);
+                    instructions.Add(CilOpCodes.Stelem, elemType.ToTypeSignature().ToTypeDefOrRef());
+                    break;
+                }
                 if (memory.Index == null && memory.Addend == 0 && memory.Scale == 0
                     && memory.Base is LocalVariable local2)
                 {
                     // Can pointer assignments just be ignored because it's C#? (Move [local], 123)
-                    instructions.Add(CilOpCodes.Stloc, locals[local2]);
+                    instructions.Add(CilOpCodes.Stloc, GetOrCreateLocal(local2, method, locals));
                     break;
                 }
                 instructions.Add(CilOpCodes.Pop);

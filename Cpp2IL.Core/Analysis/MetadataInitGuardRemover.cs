@@ -130,9 +130,7 @@ public static class MetadataInitGuardRemover
 
         // see if we're checking Il2CppClass::initialized_and_no_error
         // that means this is runtime_init boilerplate and we can drop the block
-        var initialisedFlagTest = guard.Instructions.Any(i => i.OpCode == OpCode.And
-            && i.Operands is [_, MemoryOperand { Index: null, Scale: 0, Base: LocalVariable } flag, { } mask]
-            && flag.Addend == initialisedFlagOffset && IsOne(mask));
+        var initialisedFlagTest = IsInitialisedFlagTest(cfg, guard, initialisedFlagOffset);
 
         // Either successor could be the init entry; the other is then the merge.
         var first = guard.Successors[0];
@@ -140,6 +138,90 @@ public static class MetadataInitGuardRemover
 
         return TryExcise(cfg, guard, first, second, initialisedFlagTest)
             || TryExcise(cfg, guard, second, first, initialisedFlagTest);
+    }
+
+    private static bool IsFlagOffset(IOperand operand, long initialisedFlagOffset) =>
+        operand is Immediate { Value: var imm } && (imm == initialisedFlagOffset || imm == 0x135 || imm == 309);
+
+    private static bool IsFlagMemoryOperand(IOperand operand, long initialisedFlagOffset, ISILControlFlowGraph cfg)
+    {
+        if (operand is not MemoryOperand { Index: null, Scale: 0 } memory)
+            return false;
+
+        if (memory.Addend == initialisedFlagOffset || memory.Addend == 0x135 || memory.Addend == 309)
+            return true;
+
+        if (memory.Addend == 0 && memory.Base is LocalVariable baseLocal)
+        {
+            foreach (var inst in cfg.Instructions)
+            {
+                if (inst.OpCode == OpCode.Add && inst.Operands.Count >= 3
+                    && ReferenceEquals(inst.Operands[0], baseLocal)
+                    && (IsFlagOffset(inst.Operands[1], initialisedFlagOffset) || IsFlagOffset(inst.Operands[2], initialisedFlagOffset)))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsInitialisedFlagTest(ISILControlFlowGraph cfg, Block guard, long initialisedFlagOffset)
+    {
+        // 1. Direct memory operand in And or CheckEqual/CheckNotEqual
+        if (guard.Instructions.Any(i => i.OpCode == OpCode.And
+            && i.Operands is [_, var flag, var mask]
+            && IsFlagMemoryOperand(flag, initialisedFlagOffset, cfg) && IsOne(mask)))
+            return true;
+
+        if (guard.Instructions.Any(i => i.OpCode is OpCode.CheckEqual or OpCode.CheckNotEqual
+            && i.Operands.Count >= 3
+            && (IsFlagMemoryOperand(i.Operands[1], initialisedFlagOffset, cfg) && IsZero(i.Operands[2])
+                || IsFlagMemoryOperand(i.Operands[2], initialisedFlagOffset, cfg) && IsZero(i.Operands[1]))))
+            return true;
+
+        // 2. Load from memory into local in guard block (ARM64 style: Move flagLocal, [base + offset])
+        var flagLocals = new HashSet<LocalVariable>();
+        foreach (var i in guard.Instructions)
+        {
+            if (i.OpCode == OpCode.Move && i.Operands.Count >= 2
+                && i.Operands[0] is LocalVariable dest
+                && IsFlagMemoryOperand(i.Operands[1], initialisedFlagOffset, cfg))
+            {
+                flagLocals.Add(dest);
+            }
+        }
+
+        if (flagLocals.Count > 0)
+        {
+            // Bitwise and test
+            if (guard.Instructions.Any(i => i.OpCode == OpCode.And && i.Operands.Count >= 3
+                && i.Operands[1] is LocalVariable l && flagLocals.Contains(l)))
+                return true;
+
+            // Direct comparison
+            if (guard.Instructions.Any(i => i.OpCode is >= OpCode.CheckEqual and <= OpCode.CheckLessOrEqual && i.Operands.Count >= 3
+                && ((i.Operands[1] is LocalVariable l1 && flagLocals.Contains(l1)) || (i.Operands[2] is LocalVariable l2 && flagLocals.Contains(l2)))))
+                return true;
+        }
+
+        // 3. And test with a local defined elsewhere in the cfg
+        foreach (var i in guard.Instructions)
+        {
+            if (i.OpCode == OpCode.And && i.Operands.Count >= 3
+                && i.Operands[1] is LocalVariable testedLocal)
+            {
+                foreach (var def in cfg.Instructions)
+                {
+                    if (def.OpCode == OpCode.Move && ReferenceEquals(def.Operands[0], testedLocal)
+                        && def.Operands.Count >= 2 && IsFlagMemoryOperand(def.Operands[1], initialisedFlagOffset, cfg))
+                        return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static bool IsOne(IOperand operand) => operand is Immediate { Value: 1 };
@@ -230,6 +312,13 @@ public static class MetadataInitGuardRemover
                     break;
 
                 case OpCode.Call or OpCode.CallVoid:
+                    if (instruction.Operands.Count > 0 && instruction.Operands[0] is Immediate targetImm
+                        && (targetImm.UnsignedValue is 0x37FC2F8 or 0x381ED48 or 0x37FC354 or 0x37D8510))
+                    {
+                        sawClassInit = true;
+                        break;
+                    }
+
                     if (instruction.Operands is not [StringLiteral { Value: var name }, ..])
                         return false;
 

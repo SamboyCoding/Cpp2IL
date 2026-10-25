@@ -36,6 +36,13 @@ public static class KeyFunctionRecovery
         nameof(BaseKeyFunctionAddresses.il2cpp_vm_object_box),
     ];
 
+    private static readonly HashSet<string> ClassInitFunctions =
+    [
+        nameof(BaseKeyFunctionAddresses.il2cpp_runtime_class_init_export),
+        nameof(BaseKeyFunctionAddresses.il2cpp_runtime_class_init_actual),
+        nameof(BaseKeyFunctionAddresses.il2cpp_codegen_runtime_class_init),
+    ];
+
     public static void Run(MethodAnalysisContext method)
     {
         foreach (var instruction in method.ControlFlowGraph!.Blocks.SelectMany(block => block.Instructions))
@@ -47,14 +54,40 @@ public static class KeyFunctionRecovery
                 RewriteObjectNew(instruction);
             else if (keyFunction == nameof(BaseKeyFunctionAddresses.il2cpp_codegen_write_barrier))
                 RemoveWriteBarrier(instruction);
+            else if (ClassInitFunctions.Contains(keyFunction))
+                RemoveWriteBarrier(instruction);
             else if (RaiseExceptionFunctions.Contains(keyFunction))
                 RewriteRaiseException(instruction);
             else if (BoxFunctions.Contains(keyFunction))
                 RewriteBox(instruction);
+            else if (keyFunction is nameof(BaseKeyFunctionAddresses.il2cpp_object_unbox) or nameof(BaseKeyFunctionAddresses.il2cpp_vm_object_unbox))
+                RewriteUnbox(instruction);
+            else if (keyFunction == nameof(BaseKeyFunctionAddresses.il2cpp_vm_object_is_inst))
+                RewriteIsInst(instruction);
             else if (keyFunction == nameof(BaseKeyFunctionAddresses.il2cpp_vm_reflection_get_type_object))
                 RewriteTypeObject(instruction);
             else if (keyFunction == nameof(BaseKeyFunctionAddresses.InternalCalls_Resolve))
                 RewriteInternalCallResolve(instruction, method);
+        }
+    }
+
+    private static void RewriteUnbox(Instruction instruction)
+    {
+        // Unbox takes object in operands[2], returns pointer/value in operands[1]
+        if (instruction.OpCode == OpCode.Call && instruction.Operands.Count >= 3)
+        {
+            instruction.OpCode = OpCode.Move;
+            instruction.SetOperands(instruction.Operands[1], instruction.Operands[2]);
+        }
+    }
+
+    private static void RewriteIsInst(Instruction instruction)
+    {
+        // IsInst takes object in operands[2], class in operands[3], returns in operands[1]
+        if (instruction.OpCode == OpCode.Call && instruction.Operands.Count >= 3)
+        {
+            instruction.OpCode = OpCode.Move;
+            instruction.SetOperands(instruction.Operands[1], instruction.Operands[2]);
         }
     }
 

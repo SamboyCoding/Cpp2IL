@@ -37,6 +37,9 @@ public static class ConstantFolder
         {
             switch (instruction.OpCode)
             {
+                case OpCode.Add: return ToConstant(instruction, a + b);
+                case OpCode.Subtract: return ToConstant(instruction, a - b);
+                case OpCode.Multiply: return ToConstant(instruction, a * b);
                 case OpCode.CheckEqual: return ToConstant(instruction, a == b ? 1 : 0);
                 case OpCode.CheckNotEqual: return ToConstant(instruction, a != b ? 1 : 0);
                 case OpCode.And: return ToConstant(instruction, a & b);

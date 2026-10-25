@@ -419,7 +419,7 @@ public static class LocalVariables
             switch (instruction.OpCode)
             {
                 case OpCode.Move:
-                    changed |= PropagateMove(instruction, method.AppContext.Binary.PointerSizeBytes);
+                    changed |= PropagateMove(instruction, method);
                     break;
                 case OpCode.Phi:
                     changed |= PropagatePhi(instruction);
@@ -475,9 +475,16 @@ public static class LocalVariables
         if (instruction.Operands[0] is not LocalVariable { Type: null } destination)
             return false;
 
+        if (instruction.OpCode == OpCode.Not && instruction.Operands.Count > 1
+            && instruction.Operands[1] is LocalVariable { Type.FullName: "System.Boolean" })
+            return SetTypeIfUnknown(destination, method.AppContext.SystemTypes.SystemBooleanType);
+
         for (var i = 1; i < instruction.Operands.Count; i++)
             if (IntegerResultType(instruction.Operands[i], method) is { } integerType)
                 return SetTypeIfUnknown(destination, integerType);
+
+        if (instruction.OpCode is OpCode.And or OpCode.Or or OpCode.Xor or OpCode.ShiftLeft or OpCode.ShiftRight or OpCode.Modulo)
+            return SetTypeIfUnknown(destination, method.AppContext.SystemTypes.SystemInt32Type);
 
         return false;
     }
@@ -488,6 +495,8 @@ public static class LocalVariables
         {
             LocalVariable { Type: { } localType } => localType,
             FieldReference field => field.Field.FieldType,
+            Immediate { Value: >= int.MinValue and <= int.MaxValue } => method.AppContext.SystemTypes.SystemInt32Type,
+            Immediate => method.AppContext.SystemTypes.SystemInt64Type,
             _ => null,
         };
 
@@ -510,10 +519,22 @@ public static class LocalVariables
             _ => null,
         };
 
-    private static bool PropagateMove(Instruction move, int pointerSize)
+    private static bool PropagateMove(Instruction move, MethodAnalysisContext method)
     {
+        var pointerSize = method.AppContext.Binary.PointerSizeBytes;
         var destination = move.Operands[0];
         var source = move.Operands[1];
+
+        if (destination is LocalVariable { Type: null } strDest && source is StringLiteral)
+            return SetTypeIfUnknown(strDest, method.AppContext.SystemTypes.SystemStringType);
+
+        if (destination is LocalVariable { Type: null } immDest && source is Immediate imm && imm.Value != 0)
+        {
+            var immType = imm.Value is >= int.MinValue and <= int.MaxValue
+                ? method.AppContext.SystemTypes.SystemInt32Type
+                : method.AppContext.SystemTypes.SystemInt64Type;
+            return SetTypeIfUnknown(immDest, immType);
+        }
 
         // Move local, local: copy a known type in whichever direction is missing it.
         if (destination is LocalVariable destLocal && source is LocalVariable sourceLocal)

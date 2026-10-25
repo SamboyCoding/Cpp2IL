@@ -1,0 +1,28 @@
+<Project>
+    <Choose>
+        <When Condition="'$(GeneratePackageOnBuild)' == 'true' and '$(PackageReadmeFile)' == '' and Exists('$(MSBuildProjectDirectory)\README.md')">
+            <PropertyGroup>
+                <PackageReadmeFile>README.md</PackageReadmeFile>
+            </PropertyGroup>
+            <ItemGroup>
+                <None Include="$(MSBuildProjectDirectory)\README.md" Pack="true" PackagePath="\" Visible="false" />
+            </ItemGroup>
+        </When>
+        <When Condition="'$(GeneratePackageOnBuild)' == 'true' and '$(PackageReadmeFile)' == '' and Exists('$(MSBuildProjectDirectory)\README_CORE.md')">
+            <PropertyGroup>
+                <PackageReadmeFile>README_CORE.md</PackageReadmeFile>
+            </PropertyGroup>
+            <ItemGroup>
+                <None Include="$(MSBuildProjectDirectory)\README_CORE.md" Pack="true" PackagePath="\" Visible="false" />
+            </ItemGroup>
+        </When>
+        <When Condition="'$(GeneratePackageOnBuild)' == 'true' and '$(PackageReadmeFile)' == '' and Exists('$(MSBuildThisFileDirectory)README.md')">
+            <PropertyGroup>
+                <PackageReadmeFile>README.md</PackageReadmeFile>
+            </PropertyGroup>
+            <ItemGroup>
+                <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" Visible="false" />
+            </ItemGroup>
+        </When>
+    </Choose>
+</Project>
