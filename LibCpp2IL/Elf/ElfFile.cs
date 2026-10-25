@@ -23,6 +23,7 @@ public sealed class ElfFile : ElfStyleRelocationsBinary
     private List<long>? _initializerPointers;
 
     private long _globalOffset;
+    private ulong _imageBase;
 
     public ElfFile(MemoryStream input) : base(input)
     {
@@ -93,6 +94,8 @@ public sealed class ElfFile : ElfStyleRelocationsBinary
         }
 
         LibLogger.VerboseNewline($"\tELF global offset is 0x{_globalOffset:X}");
+
+        _imageBase = _elfProgramHeaderEntries.Where(p => p.Type == ElfProgramEntryType.PT_LOAD).Select(p => p.VirtualAddress).DefaultIfEmpty(0UL).Min();
 
         //Get dynamic section.
         if (GetProgramHeaderOfType(ElfProgramEntryType.PT_DYNAMIC) is { } dynamicSegment)
@@ -566,7 +569,7 @@ public sealed class ElfFile : ElfStyleRelocationsBinary
 
     public override byte GetByteAtRawAddress(ulong addr) => _raw[addr];
 
-    public override ulong GetRva(ulong pointer) => (ulong)((long)pointer - _globalOffset);
+    public override ulong GetRva(ulong pointer) => pointer - _imageBase;
 
     public override ReadOnlySpan<byte> GetRawBinaryContent() => _raw;
 
