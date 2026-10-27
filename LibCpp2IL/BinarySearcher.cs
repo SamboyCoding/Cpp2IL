@@ -321,6 +321,9 @@ public class BinarySearcher(Il2CppBinary binary, Il2CppMetadata metadata, int me
 
     public ulong FindMetadataRegistrationPost24_5()
     {
+        // This pair is removed in v108; word 8 then holds typeDefinitionsSizesCount.
+        const int methodSpecsCountWordIndex = 8;
+        var hasBinaryMethodSpecs = metadata.MetadataVersion < 108;
         var ptrSize = binary.is32Bit ? 4ul : 8ul;
         var sizeOfMr = (uint)Il2CppMetadataRegistration.GetStructSize(binary.is32Bit, metadata.MetadataVersion);
 
@@ -348,6 +351,10 @@ public class BinarySearcher(Il2CppBinary binary, Il2CppMetadata metadata, int me
                 {
                     if (i % 2 == 0)
                     {
+                        // Validate this count against its payload after the typed read.
+                        if (hasBinaryMethodSpecs && i == methodSpecsCountWordIndex)
+                            continue;
+
                         //Count
                         ok = mrWords[i] < 0xC_0000;
 
@@ -380,6 +387,12 @@ public class BinarySearcher(Il2CppBinary binary, Il2CppMetadata metadata, int me
                 if (ok)
                 {
                     var metaReg = binary.ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(va);
+                    if (hasBinaryMethodSpecs && !HasBoundedMethodSpecs(metaReg, out var reason))
+                    {
+                        LibLogger.VerboseNewline($"\t\t\tRejected metadata registration at 0x{va:X}: methodSpecsCount {metaReg.methodSpecsCount}: {reason}");
+                        continue;
+                    }
+
                     if (metadata.MetadataVersion >= 27f && (metaReg.metadataUsagesCount != 0 || metaReg.metadataUsages != 0))
                     {
                         //Too many metadata usages - should be 0 on v27
@@ -417,5 +430,28 @@ public class BinarySearcher(Il2CppBinary binary, Il2CppMetadata metadata, int me
         }
 
         return 0;
+    }
+
+    private bool HasBoundedMethodSpecs(Il2CppMetadataRegistration registration, out string reason)
+    {
+        // Before v108, Il2CppMethodSpec.Read consumes three fixed int32 values,
+        // including on 64-bit binaries and versions with variable-width metadata indices.
+        const int recordSize = 3 * sizeof(int);
+        var count = registration.methodSpecsCount;
+        if (count < 0 || count > int.MaxValue)
+            reason = "count cannot be represented by the method-specification array";
+        else if (!binary.TryMapVirtualAddressToRaw(registration.methodSpecs, out var offset))
+            reason = "table pointer cannot be mapped";
+        else if (offset > binary.Reader.Length)
+            reason = "table offset is beyond the effective reader";
+        else if (count > (binary.Reader.Length - offset) / recordSize)
+            reason = "table records exceed the bytes remaining in the effective reader";
+        else
+        {
+            reason = string.Empty;
+            return true;
+        }
+
+        return false;
     }
 }
