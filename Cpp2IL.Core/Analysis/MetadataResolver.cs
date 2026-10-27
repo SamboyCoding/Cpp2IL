@@ -163,7 +163,7 @@ public static class MetadataResolver
                     if (genericOwner.GenericArguments.Any(a => a.IsValueType))
                         continue;
 
-                    field = GenericInstanceFieldLayout.FindFieldAtOffset(genericOwner.GenericType, memory.Addend);
+                    field = GenericInstanceFieldLayout.FindFieldAtOffset(genericOwner, memory.Addend);
                 }
                 else if (staticOwner == null && owner.GenericParameters.Count > 0)
                 {
@@ -175,16 +175,24 @@ public static class MetadataResolver
                     // derived layout, so the whole chain is searched
                     field = null;
                     for (var candidateOwner = genericOwner?.GenericType ?? owner; candidateOwner != null && field == null; candidateOwner = candidateOwner.BaseType)
+                    {
+                        if (staticOwner == null && candidateOwner is GenericInstanceTypeAnalysisContext)
+                        {
+                            field = GenericInstanceFieldLayout.FindFieldAtOffset(candidateOwner, memory.Addend);
+                            break; // The layout helper also searches this instance's ancestors.
+                        }
+
                         field = candidateOwner.Fields.FirstOrDefault(f => f.IsStatic == (staticOwner != null)
                             && (f.Attributes & FieldAttributes.Literal) == 0 // consts have no storage but their metadata offset is 0, which would match
-                            && f.BackingData?.FieldOffset == memory.Addend);
+                            && f.Offset == memory.Addend);
+                    }
                 }
 
                 if (field == null) // TODO: Support nested fields (Field1.Field2.Field3)
                     continue;
 
                 // make sure we have a full GIT for field access. open type is bad.
-                if (genericOwner != null)
+                if (genericOwner != null && staticOwner != null)
                     field = new ConcreteGenericFieldAnalysisContext(field, genericOwner);
 
                 instruction.SetOperand(i, new FieldReference(field, local, (int)memory.Addend));

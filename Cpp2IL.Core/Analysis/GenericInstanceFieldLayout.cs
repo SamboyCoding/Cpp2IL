@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Utils;
 
 namespace Cpp2IL.Core.Analysis;
 
@@ -9,23 +11,54 @@ public static class GenericInstanceFieldLayout
     public static FieldAnalysisContext? FindFieldAtOffset(TypeAnalysisContext definition, long targetOffset)
     {
         var pointerSize = definition.AppContext.Binary.PointerSizeBytes;
-
-        // TODO Support anything outside the trivial case.
-        for (var baseType = definition.BaseType; baseType != null; baseType = baseType.BaseType)
-            if (baseType.Fields.Any(f => !f.IsStatic))
-                return null;
-
         var offset = 2L * pointerSize;
+        return FindField(definition, targetOffset, pointerSize, ref offset, new HashSet<TypeAnalysisContext>(), out _);
+    }
 
-        foreach (var field in definition.Fields)
+    private static FieldAnalysisContext? FindField(TypeAnalysisContext owner, long targetOffset, int pointerSize,
+        ref long offset, HashSet<TypeAnalysisContext> visited, out bool knownLayout)
+    {
+        knownLayout = false;
+        var instance = owner as GenericInstanceTypeAnalysisContext;
+        var definition = instance?.GenericType ?? owner;
+        if (!visited.Add(definition) || instance?.GenericArguments.Any(a => a.IsValueType) == true)
+            return null;
+
+        // Constructed types do not populate Fields, and their raw-metadata constructor
+        // does not populate BaseType. Walk the definition and substitute its arguments.
+        var baseType = definition.BaseType;
+        if (baseType != null)
         {
-            if (field.IsStatic)
+            if (instance != null)
+                baseType = GenericInstantiation.Instantiate(baseType, instance.GenericArguments, []);
+            var inherited = FindField(baseType, targetOffset, pointerSize, ref offset, visited, out var baseKnown);
+            if (inherited != null || !baseKnown)
+                return inherited;
+            // Tail padding of a base ending in a sub-pointer-sized field is not
+            // described here. Do not guess where this type's own fields begin.
+            if (offset % pointerSize != 0)
+                return null;
+        }
+
+        foreach (var declaredField in definition.Fields)
+        {
+            if (declaredField.IsStatic)
                 continue;
 
+            var field = instance == null ? declaredField : new ConcreteGenericFieldAnalysisContext(declaredField, instance);
             if (GetSizeAndAlignment(field.FieldType, pointerSize) is not var (size, alignment))
                 return null;
 
-            offset = (offset + alignment - 1) & ~(alignment - 1);
+            if (instance != null || definition.GenericParameters.Count > 0)
+                offset = (offset + alignment - 1) & ~(alignment - 1);
+            else
+            {
+                // Ordinary ancestors have authoritative absolute offsets. Unknown
+                // offsets must not be guessed when locating a later generic field.
+                if (field.Offset < offset)
+                    return null;
+                offset = field.Offset;
+            }
 
             if (offset == targetOffset)
                 return field;
@@ -33,6 +66,7 @@ public static class GenericInstanceFieldLayout
             offset += size;
         }
 
+        knownLayout = true;
         return null;
     }
 
