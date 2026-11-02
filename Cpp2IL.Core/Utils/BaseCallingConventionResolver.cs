@@ -22,6 +22,16 @@ public abstract class BaseCallingConventionResolver
 
     protected abstract (string[] Integer, string[] Float) RawRegisters(ApplicationAnalysisContext app);
 
+    /// <summary>
+    /// How many argument slots a parameter occupies and which register file each one takes.
+    /// One slot per parameter for most ABIs, but a homogeneous float aggregate spans one SIMD
+    /// register per element (see <see cref="HomogeneousFloatAggregate"/>). <paramref name="emit"/>
+    /// marks the slot that carries the value itself; the extra slots of an aggregate are consumed
+    /// without contributing an operand, because a call still has one argument there.
+    /// </summary>
+    protected virtual void AddParameterSlots(List<(bool IsFloat, bool Emit)> slots, TypeAnalysisContext? type, bool emit)
+        => slots.Add((type != null && IsFloatingPoint(type), emit));
+
     // MSVC style: argument slot n is integer register n or float register n, not both
     protected virtual bool UsesShadowedArgumentSlots(ApplicationAnalysisContext app) => false;
 
@@ -72,7 +82,7 @@ public abstract class BaseCallingConventionResolver
         if (!resolved.IsStatic)
             slots.Add((false, true));
         foreach (var parameter in resolved.Parameters)
-            slots.Add((IsFloatingPoint(parameter), true));
+            AddParameterSlots(slots, parameter.ParameterType, true);
         slots.Add((false, true)); // the MethodInfo argument
 
         var operands = new List<IOperand>(argBase + slots.Count);
