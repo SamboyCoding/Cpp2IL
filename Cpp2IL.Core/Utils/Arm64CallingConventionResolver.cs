@@ -38,6 +38,25 @@ public class Arm64CallingConventionResolver : BaseCallingConventionResolver
     protected override (string[] Integer, string[] Float) RawRegisters(ApplicationAnalysisContext app)
         => (IntegerRegisters, FloatRegisters);
 
+    /// <summary>
+    /// A homogeneous float aggregate takes one V register per element, so a <c>Vector3</c> argument
+    /// occupies V0..V2 and the arguments after it are shifted by two registers. Emitting a single
+    /// integer slot for it makes every following argument read from the wrong register.
+    /// </summary>
+    protected override void AddParameterSlots(List<(bool IsFloat, bool Emit)> slots, TypeAnalysisContext? type, bool emit)
+    {
+        var elements = type == null ? 0 : HomogeneousFloatAggregate.Count(type);
+
+        if (elements == 0)
+        {
+            base.AddParameterSlots(slots, type, emit);
+            return;
+        }
+
+        for (var i = 0; i < elements; i++)
+            slots.Add((true, emit && i == 0));
+    }
+
     protected override bool HiddenBufferConsumesArgumentSlot => false;
 
     public override IOperand[] ResolveForManaged(MethodAnalysisContext ctx)
@@ -48,19 +67,44 @@ public class Arm64CallingConventionResolver : BaseCallingConventionResolver
         var floating = 0;
         var stack = 0;
 
-        void AddParameter(ParameterAnalysisContext? par)
+        void AddParameter(TypeAnalysisContext? type)
         {
-            if (par != null && IsFloatingPoint(par))
+            var slots = new List<(bool IsFloat, bool Emit)>();
+            AddParameterSlots(slots, type, true);
+
+            Register? first = null;
+
+            foreach (var (isFloat, _) in slots)
             {
-                if (floating < FloatRegisters.Length)
+                // The counter must advance for every slot of the aggregate, not only the one that
+                // contributes the operand - `??=` would short-circuit the increment away.
+                if (isFloat)
                 {
-                    args.Add(new Register(null, FloatRegisters[floating++]));
-                    return;
+                    if (floating >= FloatRegisters.Length)
+                    {
+                        first = null;
+                        break;
+                    }
+
+                    var name = FloatRegisters[floating++];
+                    first ??= new Register(null, name);
+                }
+                else
+                {
+                    if (integer >= IntegerRegisters.Length)
+                    {
+                        first = null;
+                        break;
+                    }
+
+                    var name = IntegerRegisters[integer++];
+                    first ??= new Register(null, name);
                 }
             }
-            else if (integer < IntegerRegisters.Length)
+
+            if (first != null)
             {
-                args.Add(new Register(null, IntegerRegisters[integer++]));
+                args.Add(first);
                 return;
             }
 
@@ -72,7 +116,7 @@ public class Arm64CallingConventionResolver : BaseCallingConventionResolver
             AddParameter(null);
 
         foreach (var par in ctx.Parameters)
-            AddParameter(par);
+            AddParameter(par.ParameterType);
 
         AddParameter(null); // The MethodInfo argument
 
