@@ -20,10 +20,20 @@ public class StackAnalyzer
     private Dictionary<Block, StackState> _outGoingState = [];
     private Dictionary<Instruction, StackState> _instructionState = [];
 
+    /// <summary>The method being analyzed, so the walk can report what it had to give up on.</summary>
+    private MethodAnalysisContext? _method;
+
+
     /// <summary>
     /// Max allowed count of blocks to visit (-1 for no limit).
     /// </summary>
     public static int MaxBlockVisitCount = 500000; //High enough to not be legitimately hit, but still give up if something loops infinitely.
+
+    /// <summary>
+    /// The deepest stack an emitted body can plausibly have. Exceeding it means the depth is being raised
+    /// once per loop iteration, which is what bounds the monotone walk in <see cref="TraverseGraph"/>.
+    /// </summary>
+    private const int MaxStackDepth = 512;
 
     public static void Analyze(MethodAnalysisContext method)
     {
@@ -33,6 +43,7 @@ public class StackAnalyzer
         graph.RemoveUnreachableBlocks(); // Without this indirect jumps (in try catch i think) cause some weird stuff
 
         analyzer._inComingState = new Dictionary<Block, StackState> { { graph.EntryBlock, new StackState() } };
+        analyzer._method = method;
 
         analyzer.TraverseGraph(graph.EntryBlock);
 
@@ -152,6 +163,7 @@ public class StackAnalyzer
             var incomingState = _inComingState[block];
             var currentState = incomingState.Copy();
 
+
             // Process instructions
             foreach (var instruction in block.Instructions)
             {
@@ -182,16 +194,34 @@ public class StackAnalyzer
             if (MaxBlockVisitCount != -1 && visitedBlockCount > MaxBlockVisitCount)
                 throw new DecompilerException($"Stack state not settling! ({visitedBlockCount} blocks already visited)");
 
+            // Deeper than any real frame. Because the walk is monotone, a method that raises the depth in a
+            // loop would otherwise climb forever; this is the bound that makes it terminate. Flagged rather
+            // than silent, because everything downstream from here is suspect.
+            if (currentState.Size > MaxStackDepth)
+            {
+                _method?.AddWarning($"stack depth passed {MaxStackDepth} bytes; stopped propagating through this block");
+                continue;
+            }
+
             // Visit successors
             foreach (var successor in block.Successors)
             {
                 // Already visited
                 if (_inComingState.TryGetValue(successor, out var existingState))
                 {
-                    if (existingState.Size != currentState.Size)
+                    if (currentState.Size > existingState.Size)
                     {
+                        // Monotone: only ever raise a block's incoming depth. Overwriting whenever the depth
+                        // merely *differs* does not converge - a loop that pushes per iteration raises the
+                        // depth forever, and a join whose predecessors disagree flips between two values.
+                        // Raising only terminates, and is also the conservative answer for slot naming.
                         _inComingState[successor] = currentState.Copy();
                         blockLevelState.Push((successor, visitedBlockCount + 1));
+                    }
+                    else if (currentState.Size < existingState.Size)
+                    {
+                        _method?.AddWarning(
+                            $"stack depth at a block would drop from {existingState.Size:X} to {currentState.Size:X}; kept the deeper one");
                     }
                 }
                 else
