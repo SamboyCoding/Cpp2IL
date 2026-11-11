@@ -52,7 +52,7 @@ public static class CsFileUtils
     public static string GetAccessModifiers(FieldAnalysisContext field) => field.Visibility switch
     {
         FieldAttributes.Public => "public",
-        FieldAttributes.Private => "private",
+        FieldAttributes.Private or FieldAttributes.PrivateScope => "private",
         FieldAttributes.Family => "protected",
         FieldAttributes.Assembly => "internal",
         FieldAttributes.FamORAssem => "protected internal",
