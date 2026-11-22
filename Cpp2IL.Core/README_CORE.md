@@ -14,18 +14,15 @@ This can be achieved via the `Cpp2IlApi.InitializeLibCpp2Il` function, which tak
 There are two overloads for this method - one which takes paths to files on disk, and one which takes a byte array of the content
 of these files (in case you need to pre-process them to decrypt them, for example).
 
-Beyond those two arguments (for the binary and metadata files) there are three further arguments. The first is the unity version
-as an integer array. For example, `[2020, 3, 1]` would be valid here. The array must contain at least 3 elements, being the major, minor,
-and patch versions of unity. Hotfix versions are ignored and are not required. These are used to determine which il2cpp metadata version
-to use (24.0 through 24.5, and 27.0 through 27.1 are currently supported, i.e. Unity 2018 and up). 
+Beyond those two arguments, pass the Unity version as a `UnityVersion`, for example `new UnityVersion(2020, 3, 1)`. LibCpp2IL
+accepts metadata versions 23 through 108 and uses the Unity version to select the exact layout for versions with multiple variants.
 
 If your use case supports it, there is a utility method, `Cpp2IlApi.DetermineUnityVersion`, which takes two paths on disk - one to the Game's main executable, which is
 only used if running on windows, and from which the file version is read and parsed, and one to the `GameName_Data` folder, which is used
 as a backup on non-windows platforms and from which the unity version will be read from the `globalgamemanagers` file.
 
-The final two arguments are boolean flags to enable verbose logging, and to allow the user to manually specify the address of the 
-CodeRegistration and MetadataRegistration structs if they cannot be automatically located. It is advised that both of these options be
-DISABLED (i.e. `false`) during normal runtime.
+The only optional argument is `allowUserToInputAddresses`, which defaults to `false`. Set it to `true` only in interactive tools so
+LibCpp2IL can ask for the CodeRegistration and MetadataRegistration addresses if it cannot locate them automatically.
 
 ### Generating "Dummy" Assemblies
 
